@@ -1,4 +1,12 @@
 export const commonData = {
+  actions: {
+    view: "View",
+    edit: "Edit",
+    delete: "Delete",
+    pause: "Pause",
+    resume: "Resume",
+    complete: "Complete",
+  },
   confirm: {
     cancel: "Cancel",
     delete: "Delete",

@@ -28,7 +28,7 @@ const getTitles = async (req, res, next) => {
 
 const getById = async (req, res, next) => {
   try {
-    const member = await teamMemberModel.findById(req.params.id);
+    const member = await teamMemberModel.findDetailById(req.params.id);
     if (!member) {
       return res.status(404).json({ message: "Team member not found" });
     }

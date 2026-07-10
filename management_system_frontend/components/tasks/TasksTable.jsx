@@ -1,6 +1,5 @@
 "use client";
 
-import { Pencil, Trash2 } from "lucide-react";
 import { tasksData } from "@/data/tasks";
 import {
   Table,
@@ -11,7 +10,7 @@ import {
   TableRow,
 } from "@/components/ui/Table";
 import { Badge } from "@/components/ui/Badge";
-import { Button } from "@/components/ui/Button";
+import { TableActionButtons } from "@/components/ui/TableActionButtons";
 import { SortableHeader } from "@/components/ui/SortableHeader";
 import {
   formatDateTime,
@@ -86,8 +85,16 @@ export function TasksTable({
         {tasks.map((task) => {
           const alerts = getTaskAlerts(task);
           return (
-            <TableRow key={task.id} className={getTaskRowClass(task)}>
-              <TableCell>
+            <TableRow
+              key={task.id}
+              className={getTaskRowClass(task)}
+              clickable
+              onClick={() => onEdit(task)}
+            >
+              <TableCell
+                onClick={(e) => e.stopPropagation()}
+                onKeyDown={(e) => e.stopPropagation()}
+              >
                 <input
                   type="checkbox"
                   checked={selectedIds.includes(task.id)}
@@ -127,20 +134,11 @@ export function TasksTable({
                     onComplete={onComplete}
                     loading={actionLoading}
                   />
-                  <Button
-                    variant="ghost"
-                    className="px-2 py-1.5"
-                    onClick={() => onEdit(task)}
-                  >
-                    <Pencil className="h-4 w-4" />
-                  </Button>
-                  <Button
-                    variant="ghost"
-                    className="px-2 py-1.5"
-                    onClick={() => onDelete(task)}
-                  >
-                    <Trash2 className="h-4 w-4 text-danger" />
-                  </Button>
+                  <TableActionButtons
+                    showView={false}
+                    onEdit={() => onEdit(task)}
+                    onDelete={() => onDelete(task)}
+                  />
                 </div>
               </TableCell>
             </TableRow>

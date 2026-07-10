@@ -70,3 +70,65 @@ export function useTeam(initialParams = {}) {
     },
   };
 }
+
+export function useTeamMember(id) {
+  const [member, setMember] = useState(null);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState("");
+  const requestIdRef = useRef(0);
+
+  const fetchMember = useCallback(
+    async ({ silent = false } = {}) => {
+      if (!id) return;
+      const requestId = ++requestIdRef.current;
+      if (!silent) {
+        setError("");
+        setLoading(true);
+      }
+
+      try {
+        const response = await teamApi.getById(id);
+        if (requestId !== requestIdRef.current) return;
+
+        const payload = response.data || {};
+        setMember({
+          ...payload,
+          tasks: Array.isArray(payload.tasks) ? payload.tasks : [],
+          projects: Array.isArray(payload.projects) ? payload.projects : [],
+        });
+      } catch (err) {
+        if (requestId !== requestIdRef.current) return;
+        setError(err.message);
+      } finally {
+        if (requestId === requestIdRef.current && !silent) {
+          setLoading(false);
+        }
+      }
+    },
+    [id]
+  );
+
+  useEffect(() => {
+    fetchMember();
+  }, [fetchMember]);
+
+  useEffect(() => {
+    const onFocus = () => fetchMember({ silent: true });
+    window.addEventListener("focus", onFocus);
+    return () => window.removeEventListener("focus", onFocus);
+  }, [fetchMember]);
+
+  return {
+    member,
+    loading,
+    error,
+    refresh: fetchMember,
+    updateMember: async (data) => {
+      await teamApi.update(id, data);
+      await fetchMember({ silent: true });
+    },
+    deleteMember: async () => {
+      await teamApi.delete(id);
+    },
+  };
+}

@@ -1,7 +1,6 @@
 "use client";
 
-import Link from "next/link";
-import { Eye, Pencil, Trash2 } from "lucide-react";
+import { useRouter } from "next/navigation";
 import { projectsData } from "@/data/projects";
 import {
   Table,
@@ -12,7 +11,7 @@ import {
   TableRow,
 } from "@/components/ui/Table";
 import { Badge } from "@/components/ui/Badge";
-import { Button } from "@/components/ui/Button";
+import { TableActionButtons } from "@/components/ui/TableActionButtons";
 import { SortableHeader } from "@/components/ui/SortableHeader";
 import {
   formatDate,
@@ -24,6 +23,8 @@ import {
 } from "@/lib/formatters";
 
 export function ProjectsTable({ projects, onEdit, onDelete, sort, onSort }) {
+  const router = useRouter();
+
   return (
     <Table>
       <TableHead>
@@ -71,8 +72,12 @@ export function ProjectsTable({ projects, onEdit, onDelete, sort, onSort }) {
       </TableHead>
       <TableBody>
         {projects.map((project) => (
-          <TableRow key={project.id}>
-            <TableCell className="font-medium">{project.name}</TableCell>
+          <TableRow
+            key={project.id}
+            clickable
+            onClick={() => router.push(`/projects/${project.id}`)}
+          >
+            <TableCell className="font-medium text-primary">{project.name}</TableCell>
             <TableCell>{project.lead_developer_name || "—"}</TableCell>
             <TableCell>{formatDate(project.start_date)}</TableCell>
             <TableCell>
@@ -91,27 +96,11 @@ export function ProjectsTable({ projects, onEdit, onDelete, sort, onSort }) {
             <TableCell>{formatHours(project.project_variance)}</TableCell>
             <TableCell>{formatPercent(project.project_efficiency_rate)}</TableCell>
             <TableCell>
-              <div className="flex items-center gap-1">
-                <Link href={`/projects/${project.id}`}>
-                  <Button variant="ghost" className="px-2 py-1.5">
-                    <Eye className="h-4 w-4" />
-                  </Button>
-                </Link>
-                <Button
-                  variant="ghost"
-                  className="px-2 py-1.5"
-                  onClick={() => onEdit(project)}
-                >
-                  <Pencil className="h-4 w-4" />
-                </Button>
-                <Button
-                  variant="ghost"
-                  className="px-2 py-1.5"
-                  onClick={() => onDelete(project)}
-                >
-                  <Trash2 className="h-4 w-4 text-danger" />
-                </Button>
-              </div>
+              <TableActionButtons
+                viewHref={`/projects/${project.id}`}
+                onEdit={() => onEdit(project)}
+                onDelete={() => onDelete(project)}
+              />
             </TableCell>
           </TableRow>
         ))}

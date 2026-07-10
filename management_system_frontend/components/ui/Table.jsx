@@ -14,8 +14,31 @@ export function TableBody({ children }) {
   return <tbody className="divide-y divide-border-light bg-surface">{children}</tbody>;
 }
 
-export function TableRow({ children, className = "" }) {
-  return <tr className={`transition-colors hover:bg-parchment/60 ${className}`}>{children}</tr>;
+export function TableRow({ children, className = "", onClick, clickable = false }) {
+  const isClickable = clickable || Boolean(onClick);
+
+  return (
+    <tr
+      className={`transition-colors hover:bg-parchment/60 ${
+        isClickable ? "cursor-pointer" : ""
+      } ${className}`}
+      onClick={onClick}
+      onKeyDown={
+        onClick
+          ? (e) => {
+              if (e.key === "Enter" || e.key === " ") {
+                e.preventDefault();
+                onClick(e);
+              }
+            }
+          : undefined
+      }
+      tabIndex={onClick ? 0 : undefined}
+      role={onClick ? "button" : undefined}
+    >
+      {children}
+    </tr>
+  );
 }
 
 export function TableHeaderCell({ children, className = "" }) {
@@ -29,6 +52,10 @@ export function TableHeaderCell({ children, className = "" }) {
   );
 }
 
-export function TableCell({ children, className = "" }) {
-  return <td className={`px-4 py-3 text-text-primary ${className}`}>{children}</td>;
+export function TableCell({ children, className = "", ...props }) {
+  return (
+    <td className={`px-4 py-3 text-text-primary ${className}`} {...props}>
+      {children}
+    </td>
+  );
 }

@@ -168,6 +168,7 @@ export function ProjectsPageContent() {
 
       <div className="mb-6">
         <FilterBar
+          filtersLayout="twoRow"
           search={search}
           onSearchChange={setSearch}
           searchPlaceholder={projectsData.searchPlaceholder}

@@ -1,6 +1,9 @@
 const pool = require("../db");
 const { parseSort } = require("../utils/queryBuilder");
-const { efficiencyRate } = require("../services/calculationService");
+const {
+  efficiencyRate,
+  taskVariance,
+} = require("../services/calculationService");
 
 const TEAM_STATS_JOIN = `
   LEFT JOIN LATERAL (
@@ -167,10 +170,84 @@ const remove = async (id) => {
   return result.rows[0] || null;
 };
 
+const mapMemberTask = (row) => ({
+  id: row.id,
+  name: row.name,
+  details: row.details,
+  project_id: row.project_id,
+  project_name: row.project_name,
+  complexity: row.complexity,
+  priority: row.priority,
+  start_time: row.start_time,
+  deadline: row.deadline,
+  completed_at: row.completed_at,
+  estimated_hours: Number(row.estimated_hours),
+  actual_hours: row.actual_hours !== null ? Number(row.actual_hours) : null,
+  variance:
+    row.actual_hours !== null
+      ? taskVariance(row.actual_hours, row.estimated_hours)
+      : null,
+  status: row.status,
+});
+
+const mapMemberProject = (row) => {
+  const isLead = Boolean(row.is_lead);
+  const memberTasks = row.member_tasks || 0;
+
+  return {
+    id: row.id,
+    name: row.name,
+    status: row.status,
+    quality: row.quality,
+    start_date: row.start_date,
+    is_lead: isLead,
+    member_tasks: memberTasks,
+    role: isLead && memberTasks > 0 ? "lead_and_contributor" : isLead ? "lead" : "contributor",
+  };
+};
+
+const findDetailById = async (id) => {
+  const member = await findById(id);
+  if (!member) return null;
+
+  const [tasksResult, projectsResult] = await Promise.all([
+    pool.query(
+      `SELECT t.*, p.name AS project_name
+       FROM tasks t
+       LEFT JOIN projects p ON t.project_id = p.id
+       WHERE t.assigned_to = $1::uuid
+       ORDER BY t.created_at DESC`,
+      [id]
+    ),
+    pool.query(
+      `SELECT p.id, p.name, p.status, p.quality, p.start_date,
+        (p.lead_developer_id = $1::uuid) AS is_lead,
+        COUNT(t.id) FILTER (WHERE t.assigned_to = $1::uuid)::int AS member_tasks
+       FROM projects p
+       LEFT JOIN tasks t ON t.project_id = p.id AND t.assigned_to = $1::uuid
+       WHERE p.lead_developer_id = $1::uuid
+          OR EXISTS (
+            SELECT 1 FROM tasks tx
+            WHERE tx.project_id = p.id AND tx.assigned_to = $1::uuid
+          )
+       GROUP BY p.id, p.name, p.status, p.quality, p.start_date, p.lead_developer_id
+       ORDER BY p.name ASC`,
+      [id]
+    ),
+  ]);
+
+  return {
+    ...member,
+    tasks: tasksResult.rows.map(mapMemberTask),
+    projects: projectsResult.rows.map(mapMemberProject),
+  };
+};
+
 module.exports = {
   findAll,
   findDistinctTitles,
   findById,
+  findDetailById,
   create,
   update,
   updateMatrixRating,

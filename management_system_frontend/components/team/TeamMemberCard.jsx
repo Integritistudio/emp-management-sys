@@ -1,20 +1,32 @@
 "use client";
 
-import { Pencil, Trash2 } from "lucide-react";
-import { Card } from "@/components/ui/Card";
-import { Button } from "@/components/ui/Button";
+import { useRouter } from "next/navigation";
 import { teamData } from "@/data/team";
+import { commonData } from "@/data/common";
+import { Card } from "@/components/ui/Card";
+import { ActionIconButton } from "@/components/ui/TableActionButtons";
 import { formatHours, formatPercent, formatLabel } from "@/lib/formatters";
 
 export function TeamMemberCard({ member, onEdit, onDelete }) {
+  const router = useRouter();
+
   return (
-    <Card className="flex h-full min-h-[280px] flex-col border border-primary/15 bg-surface">
+    <Card
+      className="flex h-full min-h-[280px] cursor-pointer flex-col border border-primary/15 bg-surface transition-colors hover:border-primary/30"
+      onClick={() => router.push(`/team/${member.id}`)}
+      onKeyDown={(e) => {
+        if (e.key === "Enter" || e.key === " ") {
+          e.preventDefault();
+          router.push(`/team/${member.id}`);
+        }
+      }}
+      role="button"
+      tabIndex={0}
+    >
       <div className="mb-4 border-b border-border-light pb-3">
-        <div>
-          <h3 className="text-tagline font-semibold text-text-primary">{member.full_name}</h3>
-          <p className="text-caption text-text-secondary">{member.title}</p>
-          <p className="mt-1 text-caption text-text-muted">{member.email}</p>
-        </div>
+        <h3 className="text-tagline font-semibold text-text-primary">{member.full_name}</h3>
+        <p className="text-caption text-text-secondary">{member.title}</p>
+        <p className="mt-1 text-caption text-text-muted">{member.email}</p>
       </div>
 
       <div className="grid grid-cols-2 gap-3 text-caption">
@@ -42,14 +54,29 @@ export function TeamMemberCard({ member, onEdit, onDelete }) {
         </div>
       </div>
 
-      <div className="mt-auto flex gap-2 pt-5">
-        <Button variant="secondary" className="flex-1" onClick={() => onEdit(member)}>
-          <Pencil className="h-4 w-4" />
-          Edit
-        </Button>
-        <Button variant="ghost" onClick={() => onDelete(member)}>
-          <Trash2 className="h-4 w-4 text-danger" />
-        </Button>
+      <div
+        className="mt-auto flex items-center justify-end gap-2 pt-5"
+        onClick={(e) => e.stopPropagation()}
+        onKeyDown={(e) => e.stopPropagation()}
+      >
+        <ActionIconButton
+          type="view"
+          label={commonData.actions.view}
+          href={`/team/${member.id}`}
+          boxed
+        />
+        <ActionIconButton
+          type="edit"
+          label={commonData.actions.edit}
+          onClick={() => onEdit(member)}
+          boxed
+        />
+        <ActionIconButton
+          type="delete"
+          label={commonData.actions.delete}
+          onClick={() => onDelete(member)}
+          boxed
+        />
       </div>
     </Card>
   );

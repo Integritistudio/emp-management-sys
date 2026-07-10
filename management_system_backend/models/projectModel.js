@@ -25,10 +25,6 @@ const PROJECT_AGG_JOIN = `
 const mapProject = (row) => {
   const totalEstimated = Number(row.total_estimated || 0);
   const totalActual = Number(row.total_actual || 0);
-  // Variance & efficiency compare like-for-like: estimated vs actual of the
-  // SAME completed tasks (PDF 8.8, 8.9, 21.2, 21.4). Using all-task estimated
-  // against completed-only actual would understate efficiency.
-  const completedEstimated = Number(row.completed_estimated || 0);
   const completedActual = Number(row.completed_actual || 0);
 
   return {
@@ -46,8 +42,8 @@ const mapProject = (row) => {
     total_estimated_time: totalEstimated,
     total_actual_time: totalActual,
     total_project_time: completedActual,
-    project_variance: projectVariance(completedActual, completedEstimated),
-    project_efficiency_rate: efficiencyRate(completedEstimated, completedActual),
+    project_variance: projectVariance(totalActual, totalEstimated),
+    project_efficiency_rate: efficiencyRate(totalEstimated, totalActual),
     created_at: row.created_at,
     updated_at: row.updated_at,
   };

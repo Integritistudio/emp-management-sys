@@ -2,7 +2,24 @@
 
 import { Pause, Play, CheckCircle } from "lucide-react";
 import { Button } from "@/components/ui/Button";
-import { tasksData } from "@/data/tasks";
+import { Tooltip } from "@/components/ui/Tooltip";
+import { commonData } from "@/data/common";
+
+function TimerActionButton({ label, onClick, disabled, children }) {
+  return (
+    <Tooltip content={label}>
+      <Button
+        variant="ghost"
+        className="px-2 py-1.5"
+        onClick={onClick}
+        disabled={disabled}
+        aria-label={label}
+      >
+        {children}
+      </Button>
+    </Tooltip>
+  );
+}
 
 export function TaskTimerActions({ task, onPause, onResume, onComplete, loading }) {
   if (!task || ["completed", "cancelled"].includes(task.status)) {
@@ -10,37 +27,35 @@ export function TaskTimerActions({ task, onPause, onResume, onComplete, loading 
   }
 
   return (
-    <div className="flex items-center gap-1">
+    <div
+      className="flex items-center gap-1"
+      onClick={(e) => e.stopPropagation()}
+      onKeyDown={(e) => e.stopPropagation()}
+    >
       {task.status === "paused" ? (
-        <Button
-          variant="ghost"
-          className="px-2 py-1.5"
+        <TimerActionButton
+          label={commonData.actions.resume}
           onClick={() => onResume(task)}
           disabled={loading}
-          title={tasksData.timer.resume}
         >
           <Play className="h-4 w-4 text-success" />
-        </Button>
+        </TimerActionButton>
       ) : ["in_progress"].includes(task.status) ? (
-        <Button
-          variant="ghost"
-          className="px-2 py-1.5"
+        <TimerActionButton
+          label={commonData.actions.pause}
           onClick={() => onPause(task)}
           disabled={loading}
-          title={tasksData.timer.pause}
         >
           <Pause className="h-4 w-4 text-warning" />
-        </Button>
+        </TimerActionButton>
       ) : null}
-      <Button
-        variant="ghost"
-        className="px-2 py-1.5"
+      <TimerActionButton
+        label={commonData.actions.complete}
         onClick={() => onComplete(task)}
         disabled={loading}
-        title={tasksData.timer.complete}
       >
         <CheckCircle className="h-4 w-4 text-success" />
-      </Button>
+      </TimerActionButton>
     </div>
   );
 }

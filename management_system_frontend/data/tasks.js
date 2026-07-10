@@ -33,7 +33,8 @@ export const tasksData = {
   table: {
     name: "Task Name",
     project: "Project",
-    assignee: "Assigned To",
+    assignee: "Assigned Developer",
+    details: "Task Details",
     complexity: "Complexity",
     priority: "Priority",
     startTime: "Start Time",

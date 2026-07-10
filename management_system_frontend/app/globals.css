@@ -85,6 +85,15 @@
 
   /* --- Spacing rhythm --- */
   --spacing-section: 80px;
+
+  /* --- Filter bar (Team page reference) --- */
+  --filter-control-height: 2.75rem;
+  --filter-search-max-width: 24rem;
+  --filter-panel-max-width: 36rem;
+  --filter-panel-wide-max-width: 42rem;
+  --filter-field-width: 11.75rem;
+  --filter-field-width-wide: 14.5rem;
+  --filter-gap: 0.75rem;
 }
 
 @layer base {
@@ -128,5 +137,51 @@
 
   .frosted-bar {
     @apply border-b border-border-light bg-parchment/80 backdrop-blur-md;
+  }
+
+  /* Shared filter controls — match Team page sizing site-wide */
+  .filter-label {
+    @apply mb-2 block text-caption-strong text-text-primary;
+  }
+
+  .filter-control-base {
+    @apply h-11 w-full border border-border bg-surface text-body text-text-primary focus:border-primary focus:outline-none focus:outline-2 focus:outline-offset-0 focus:outline-primary-focus;
+  }
+
+  .filter-select {
+    @apply filter-control-base rounded-md px-4;
+  }
+
+  .filter-date {
+    @apply filter-control-base rounded-md px-3;
+  }
+
+  .filter-search-input {
+    @apply filter-control-base rounded-pill py-2 pl-11 pr-4 placeholder:text-text-muted;
+  }
+
+  .filter-field {
+    width: var(--filter-field-width);
+    @apply min-w-0 shrink-0;
+  }
+
+  .filter-field-wide {
+    width: var(--filter-field-width-wide);
+    @apply min-w-0 shrink-0;
+  }
+
+  .filter-search-wrap {
+    max-width: var(--filter-search-max-width);
+    @apply w-full shrink-0;
+  }
+
+  .filter-panel {
+    max-width: var(--filter-panel-max-width);
+    @apply grid flex-1 gap-3 sm:grid-cols-2 lg:ml-auto;
+  }
+
+  .filter-panel-wide {
+    max-width: var(--filter-panel-wide-max-width);
+    @apply flex flex-col gap-3 lg:ml-auto;
   }
 }

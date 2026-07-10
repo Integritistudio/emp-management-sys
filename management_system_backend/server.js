@@ -76,6 +76,13 @@ app.use(
   })
 );
 
+// Dynamic API data must not be cached — stale 304 responses hid tasks/projects on detail pages
+app.use("/api", (req, res, next) => {
+  res.set("Cache-Control", "no-store, no-cache, must-revalidate");
+  res.set("Pragma", "no-cache");
+  next();
+});
+
 app.use("/api/docs", swaggerUi.serve, swaggerUi.setup(swaggerSpec));
 app.use("/api", routes);
 
