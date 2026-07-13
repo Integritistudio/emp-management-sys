@@ -3,7 +3,7 @@
 import { useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { ArrowLeft, Pencil, Trash2 } from "lucide-react";
+import { ArrowLeft, Pencil, Plus, Trash2 } from "lucide-react";
 import { projectsData } from "@/data/projects";
 import { tasksData } from "@/data/tasks";
 import { useProject } from "@/hooks/useProjects";
@@ -50,7 +50,7 @@ export function ProjectDetailContent({ projectId }) {
       <div>
         <TableSkeleton rows={4} cols={4} />
         <div className="mt-6">
-          <TableSkeleton rows={5} cols={11} />
+          <TableSkeleton rows={5} cols={12} />
         </div>
       </div>
     );
@@ -65,6 +65,10 @@ export function ProjectDetailContent({ projectId }) {
   }
 
   const metadata = [
+    {
+      label: projectsData.detail.name,
+      value: project.name,
+    },
     {
       label: projectsData.detail.lead,
       value: project.lead_developer_name || "—",
@@ -91,6 +95,7 @@ export function ProjectDetailContent({ projectId }) {
     },
   ];
 
+  // PDF 8.5 + 8.7 — overview metrics in specification order
   const stats = [
     { label: projectsData.detail.totalTasks, value: project.total_tasks },
     { label: projectsData.detail.completedTasks, value: project.completed_tasks },
@@ -107,6 +112,11 @@ export function ProjectDetailContent({ projectId }) {
     {
       label: projectsData.detail.totalProjectTime,
       value: formatHours(project.total_project_time),
+    },
+    {
+      label: projectsData.detail.activeTaskTime,
+      hint: projectsData.detail.activeTaskTimeHint,
+      value: formatHours(project.active_task_time ?? 0),
     },
     {
       label: projectsData.detail.variance,
@@ -172,7 +182,10 @@ export function ProjectDetailContent({ projectId }) {
         </div>
       </div>
 
-      <div className="mb-8 grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
+      <h2 className="mb-4 text-lg font-semibold text-text-primary">
+        {projectsData.detail.infoTitle}
+      </h2>
+      <div className="mb-8 grid gap-4 sm:grid-cols-2 lg:grid-cols-5">
         {metadata.map((item) => (
           <Card key={item.label} className="!p-4">
             <p className="text-xs text-text-muted">{item.label}</p>
@@ -189,15 +202,28 @@ export function ProjectDetailContent({ projectId }) {
       <div className="mb-8 grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
         {stats.map((stat) => (
           <Card key={stat.label} className="!p-4">
-            <p className="text-xs text-text-muted">{stat.label}</p>
+            <p className="text-xs text-text-muted">
+              {stat.label}
+              {stat.hint ? (
+                <span className="font-normal text-text-muted/80"> {stat.hint}</span>
+              ) : null}
+            </p>
             <p className="mt-1 text-xl font-semibold text-text-primary">{stat.value}</p>
           </Card>
         ))}
       </div>
 
-      <h2 className="mb-4 text-lg font-semibold text-text-primary">
-        {projectsData.detail.tasksTitle}
-      </h2>
+      <div className="mb-4 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+        <h2 className="text-lg font-semibold text-text-primary">
+          {projectsData.detail.tasksTitle}
+        </h2>
+        <Link href={`/tasks?projectId=${project.id}&create=1`}>
+          <Button variant="secondary" type="button">
+            <Plus className="h-4 w-4" />
+            {tasksData.addButton}
+          </Button>
+        </Link>
+      </div>
 
       {!project.tasks || project.tasks.length === 0 ? (
         <EmptyState
@@ -215,10 +241,21 @@ export function ProjectDetailContent({ projectId }) {
               <TableHeaderCell>{tasksData.table.priority}</TableHeaderCell>
               <TableHeaderCell>{tasksData.table.startTime}</TableHeaderCell>
               <TableHeaderCell>{projectsData.detail.taskTable.deadline}</TableHeaderCell>
+              <TableHeaderCell>
+                <span>{projectsData.detail.taskTable.completionTime}</span>
+                <span className="mt-0.5 block text-[10px] font-normal normal-case text-text-muted">
+                  {projectsData.detail.taskTable.completionTimeHint}
+                </span>
+              </TableHeaderCell>
               <TableHeaderCell>{projectsData.detail.taskTable.estimated}</TableHeaderCell>
               <TableHeaderCell>{projectsData.detail.taskTable.actual}</TableHeaderCell>
               <TableHeaderCell>{tasksData.table.variance}</TableHeaderCell>
-              <TableHeaderCell>{tasksData.table.status}</TableHeaderCell>
+              <TableHeaderCell>
+                <span>{projectsData.detail.taskTable.status}</span>
+                <span className="mt-0.5 block text-[10px] font-normal normal-case text-text-muted">
+                  {projectsData.detail.taskTable.statusHint}
+                </span>
+              </TableHeaderCell>
             </TableRow>
           </TableHead>
           <TableBody>
@@ -236,6 +273,11 @@ export function ProjectDetailContent({ projectId }) {
                 <TableCell>{formatLabel(task.priority)}</TableCell>
                 <TableCell>{formatDateTime(task.start_time)}</TableCell>
                 <TableCell>{formatDateTime(task.deadline)}</TableCell>
+                <TableCell>
+                  {task.status === "completed" && task.completed_at
+                    ? formatDateTime(task.completed_at)
+                    : "—"}
+                </TableCell>
                 <TableCell>{formatHours(task.estimated_hours)}</TableCell>
                 <TableCell>{formatHours(task.actual_hours)}</TableCell>
                 <TableCell>
@@ -271,7 +313,10 @@ export function ProjectDetailContent({ projectId }) {
       <ConfirmDialog
         open={showDeleteConfirm}
         title={commonData.delete.projectTitle}
-        message={commonData.delete.projectMessage(project.name)}
+        message={commonData.delete.projectMessage(
+          project.name,
+          project.total_tasks
+        )}
         loading={deleteLoading}
         onConfirm={confirmDelete}
         onCancel={() => setShowDeleteConfirm(false)}

@@ -27,6 +27,9 @@ export const tasksData = {
     actualPlaceholder: "Manual override",
     actualAutoHint:
       "Leave empty to auto-calculate actual time from the task timer when marking it Completed.",
+    deadlinePreviewHint:
+      "Auto-calculated from start time + estimated hours (office hours).",
+    deadlineAutoHint: "Auto-updated from start time and estimated hours.",
     submit: "Save Task",
     cancel: "Cancel",
   },

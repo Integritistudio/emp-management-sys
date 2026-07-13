@@ -4,6 +4,7 @@ const {
   efficiencyRate,
   projectVariance,
 } = require("../services/calculationService");
+const { calculateElapsedHours } = require("../services/taskTimerService");
 
 const PROJECT_AGG_JOIN = `
   LEFT JOIN team_members ld ON p.lead_developer_id = ld.id
@@ -16,7 +17,8 @@ const PROJECT_AGG_JOIN = `
       COALESCE(SUM(t.estimated_hours), 0) AS total_estimated,
       COALESCE(SUM(t.actual_hours), 0) AS total_actual,
       COALESCE(SUM(t.estimated_hours) FILTER (WHERE t.status = 'completed'), 0) AS completed_estimated,
-      COALESCE(SUM(t.actual_hours) FILTER (WHERE t.status = 'completed'), 0) AS completed_actual
+      COALESCE(SUM(t.actual_hours) FILTER (WHERE t.status = 'completed'), 0) AS completed_actual,
+      COALESCE(SUM(t.actual_hours) FILTER (WHERE t.status IN ('in_progress', 'paused')), 0) AS active_actual
     FROM tasks t
     WHERE t.project_id = p.id
   ) task_agg ON true
@@ -26,6 +28,7 @@ const mapProject = (row) => {
   const totalEstimated = Number(row.total_estimated || 0);
   const totalActual = Number(row.total_actual || 0);
   const completedActual = Number(row.completed_actual || 0);
+  const activeActual = Number(row.active_actual || 0);
 
   return {
     id: row.id,
@@ -42,6 +45,7 @@ const mapProject = (row) => {
     total_estimated_time: totalEstimated,
     total_actual_time: totalActual,
     total_project_time: completedActual,
+    active_task_time: activeActual,
     project_variance: projectVariance(totalActual, totalEstimated),
     project_efficiency_rate: efficiencyRate(totalEstimated, totalActual),
     created_at: row.created_at,
@@ -109,7 +113,7 @@ const findAll = async (query = {}) => {
     `SELECT p.*, ld.full_name AS lead_developer_name,
       task_agg.total_tasks, task_agg.completed_tasks, task_agg.active_tasks,
       task_agg.on_hold_tasks, task_agg.total_estimated, task_agg.total_actual,
-      task_agg.completed_actual
+      task_agg.completed_actual, task_agg.active_actual
     FROM projects p
     ${PROJECT_AGG_JOIN}
     ${whereClause}
@@ -120,18 +124,41 @@ const findAll = async (query = {}) => {
   return result.rows.map(mapProject);
 };
 
+const sumActiveTaskElapsedHours = async (projectId) => {
+  const result = await pool.query(
+    `SELECT start_time, total_paused_hours, paused_at, actual_hours
+     FROM tasks
+     WHERE project_id = $1 AND status IN ('in_progress', 'paused')`,
+    [projectId]
+  );
+
+  const total = result.rows.reduce((sum, task) => {
+    const hours =
+      task.actual_hours != null
+        ? Number(task.actual_hours)
+        : calculateElapsedHours(task);
+    return sum + hours;
+  }, 0);
+
+  return Number(total.toFixed(2));
+};
+
 const findById = async (id) => {
   const result = await pool.query(
     `SELECT p.*, ld.full_name AS lead_developer_name,
       task_agg.total_tasks, task_agg.completed_tasks, task_agg.active_tasks,
       task_agg.on_hold_tasks, task_agg.total_estimated, task_agg.total_actual,
-      task_agg.completed_actual
+      task_agg.completed_actual, task_agg.active_actual
     FROM projects p
     ${PROJECT_AGG_JOIN}
     WHERE p.id = $1`,
     [id]
   );
-  return result.rows[0] ? mapProject(result.rows[0]) : null;
+  if (!result.rows[0]) return null;
+
+  const project = mapProject(result.rows[0]);
+  project.active_task_time = await sumActiveTaskElapsedHours(id);
+  return project;
 };
 
 const create = async ({ name, lead_developer_id, start_date, quality, status }) => {

@@ -3,6 +3,7 @@ const { body } = require("express-validator");
 const authController = require("../controllers/authController");
 const authMiddleware = require("../middleware/authMiddleware");
 const validate = require("../middleware/validateMiddleware");
+const { loginLimiter } = require("../middleware/rateLimiters");
 
 const router = express.Router();
 
@@ -33,6 +34,7 @@ const router = express.Router();
  */
 router.post(
   "/login",
+  loginLimiter,
   [
     body("email").isEmail().withMessage("Valid email is required"),
     body("password").notEmpty().withMessage("Password is required"),

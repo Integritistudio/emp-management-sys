@@ -176,6 +176,7 @@ Completing via **PUT** (edit form) also auto-fills `actual_hours` unless manuall
 - `total_estimated_time` = sum of `estimated_hours` on all linked tasks
 - `total_actual_time` = sum of `actual_hours` on all linked tasks (null treated as 0)
 - `total_project_time` = sum of `actual_hours` on **completed** tasks only (PDF 21.5)
+- `active_task_time` = sum of `actual_hours` on **in_progress** and **paused** tasks (PDF 8.7)
 - `project_variance` = `total_actual_time − total_estimated_time` (PDF 8.8)
 - `project_efficiency_rate` = `(total_estimated_time / total_actual_time) × 100` (PDF 8.9)
 

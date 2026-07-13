@@ -250,7 +250,10 @@ export function ProjectsPageContent() {
         title={commonData.delete.projectTitle}
         message={
           projectToDelete
-            ? commonData.delete.projectMessage(projectToDelete.name)
+            ? commonData.delete.projectMessage(
+                projectToDelete.name,
+                projectToDelete.total_tasks
+              )
             : ""
         }
         loading={deleteLoading}

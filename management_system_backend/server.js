@@ -3,16 +3,21 @@ const express = require("express");
 const cors = require("cors");
 const helmet = require("helmet");
 const cookieParser = require("cookie-parser");
-const rateLimit = require("express-rate-limit");
 const swaggerUi = require("swagger-ui-express");
 const initDatabase = require("./db/init");
 const routes = require("./routes");
 const swaggerSpec = require("./config/swagger");
 const requestLogger = require("./middleware/requestLogger");
 const errorHandler = require("./middleware/errorHandler");
+const { apiLimiter } = require("./middleware/rateLimiters");
 
 const app = express();
 const PORT = process.env.PORT || 5000;
+
+// Required when deployed behind nginx / load balancer so rate limits use the real client IP.
+if (process.env.NODE_ENV === "production") {
+  app.set("trust proxy", 1);
+}
 
 // Log unhandled errors — do NOT let the server silently crash
 process.on("unhandledRejection", (reason) => {
@@ -67,14 +72,8 @@ app.use(
 app.use(express.json());
 app.use(cookieParser());
 
-app.use(
-  rateLimit({
-    windowMs: Number(process.env.RATE_LIMIT_WINDOW_MS) || 15 * 60 * 1000,
-    max: Number(process.env.RATE_LIMIT_MAX) || 100,
-    standardHeaders: true,
-    legacyHeaders: false,
-  })
-);
+// General API limit — applies in all environments; OPTIONS preflight is excluded.
+app.use(apiLimiter);
 
 // Dynamic API data must not be cached — stale 304 responses hid tasks/projects on detail pages
 app.use("/api", (req, res, next) => {

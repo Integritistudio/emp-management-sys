@@ -1,5 +1,6 @@
 "use client";
 
+import Link from "next/link";
 import { tasksData } from "@/data/tasks";
 import {
   Table,
@@ -59,7 +60,33 @@ export function TasksTable({
             />
           </TableHeaderCell>
           <TableHeaderCell>{tasksData.table.project}</TableHeaderCell>
+          <TableHeaderCell>{tasksData.table.details}</TableHeaderCell>
+          <TableHeaderCell>
+            <SortableHeader
+              label={tasksData.table.complexity}
+              column="complexity"
+              currentSort={sort}
+              onSort={onSort}
+            />
+          </TableHeaderCell>
+          <TableHeaderCell>
+            <SortableHeader
+              label={tasksData.table.priority}
+              column="priority"
+              currentSort={sort}
+              onSort={onSort}
+            />
+          </TableHeaderCell>
           <TableHeaderCell>{tasksData.table.assignee}</TableHeaderCell>
+          <TableHeaderCell>
+            <SortableHeader
+              label={tasksData.table.startTime}
+              column="start_time"
+              currentSort={sort}
+              onSort={onSort}
+            />
+          </TableHeaderCell>
+          <TableHeaderCell>{tasksData.table.estimated}</TableHeaderCell>
           <TableHeaderCell>
             <SortableHeader
               label={tasksData.table.deadline}
@@ -68,8 +95,8 @@ export function TasksTable({
               onSort={onSort}
             />
           </TableHeaderCell>
-          <TableHeaderCell>{tasksData.table.estimated}</TableHeaderCell>
           <TableHeaderCell>{tasksData.table.actual}</TableHeaderCell>
+          <TableHeaderCell>{tasksData.table.variance}</TableHeaderCell>
           <TableHeaderCell>
             <SortableHeader
               label={tasksData.table.status}
@@ -78,7 +105,9 @@ export function TasksTable({
               onSort={onSort}
             />
           </TableHeaderCell>
-          <TableHeaderCell>{tasksData.table.actions}</TableHeaderCell>
+          <TableHeaderCell className="sticky right-0 bg-surface">
+            {tasksData.table.actions}
+          </TableHeaderCell>
         </TableRow>
       </TableHead>
       <TableBody>
@@ -104,7 +133,9 @@ export function TasksTable({
                 />
               </TableCell>
               <TableCell>
-                <div className="font-medium text-text-primary">{task.name}</div>
+                <div className="min-w-[140px] font-medium text-text-primary">
+                  {task.name}
+                </div>
                 {alerts.length > 0 ? (
                   <div className="mt-1 flex flex-wrap gap-1">
                     {alerts.map((alert) => (
@@ -115,17 +146,51 @@ export function TasksTable({
                   </div>
                 ) : null}
               </TableCell>
-              <TableCell>{task.project_name || "—"}</TableCell>
+              <TableCell>
+                {task.project_id && task.project_name ? (
+                  <Link
+                    href={`/projects/${task.project_id}`}
+                    className="text-primary hover:underline"
+                    onClick={(e) => e.stopPropagation()}
+                  >
+                    {task.project_name}
+                  </Link>
+                ) : (
+                  "—"
+                )}
+              </TableCell>
+              <TableCell
+                className="max-w-[180px] truncate"
+                title={task.details || undefined}
+              >
+                {task.details || "—"}
+              </TableCell>
+              <TableCell>{formatLabel(task.complexity)}</TableCell>
+              <TableCell>{formatLabel(task.priority)}</TableCell>
               <TableCell>{task.assigned_to_name || "—"}</TableCell>
-              <TableCell>{formatDateTime(task.deadline)}</TableCell>
+              <TableCell className="whitespace-nowrap">
+                {formatDateTime(task.start_time)}
+              </TableCell>
               <TableCell>{formatHours(task.estimated_hours)}</TableCell>
+              <TableCell className="whitespace-nowrap">
+                {formatDateTime(task.deadline)}
+              </TableCell>
               <TableCell>{formatHours(task.actual_hours)}</TableCell>
+              <TableCell>
+                {task.variance !== null && task.variance !== undefined
+                  ? formatHours(task.variance)
+                  : "—"}
+              </TableCell>
               <TableCell>
                 <Badge variant={getStatusVariant(task.status)}>
                   {formatLabel(task.status)}
                 </Badge>
               </TableCell>
-              <TableCell>
+              <TableCell
+                className="sticky right-0 bg-surface"
+                onClick={(e) => e.stopPropagation()}
+                onKeyDown={(e) => e.stopPropagation()}
+              >
                 <div className="flex items-center gap-1">
                   <TaskTimerActions
                     task={task}

@@ -39,6 +39,15 @@ export function formatDateTime(dateString) {
   });
 }
 
+/** PDF 8.6 — completed tasks show completion time; others show deadline. */
+export function getTaskEndDateTime(task) {
+  if (!task) return null;
+  if (task.status === "completed" && task.completed_at) {
+    return task.completed_at;
+  }
+  return task.deadline;
+}
+
 export function formatHours(value) {
   if (value === null || value === undefined) return "—";
   return Number(value).toFixed(2);

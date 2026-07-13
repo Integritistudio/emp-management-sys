@@ -1,26 +1,59 @@
 "use client";
 
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { tasksApi } from "@/lib/tasks";
+
+function serializeParams(params = {}) {
+  return JSON.stringify({
+    search: params.search || "",
+    projectId: params.projectId || "",
+    developerId: params.developerId || "",
+    status: params.status || "",
+    complexity: params.complexity || "",
+    priority: params.priority || "",
+    startDate: params.startDate || "",
+    endDate: params.endDate || "",
+    sort: params.sort || "",
+  });
+}
 
 export function useTasks(initialParams = {}) {
   const [tasks, setTasks] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
-  const [params, setParams] = useState(initialParams);
+  const requestIdRef = useRef(0);
+  const paramsKey = serializeParams(initialParams);
 
   const fetchTasks = useCallback(async () => {
-    setLoading(true);
+    const requestId = ++requestIdRef.current;
     setError("");
+    setLoading(true);
+
     try {
-      const response = await tasksApi.getAll(params);
+      const parsed = JSON.parse(paramsKey);
+      const response = await tasksApi.getAll({
+        search: parsed.search || undefined,
+        projectId: parsed.projectId || undefined,
+        developerId: parsed.developerId || undefined,
+        status: parsed.status || undefined,
+        complexity: parsed.complexity || undefined,
+        priority: parsed.priority || undefined,
+        startDate: parsed.startDate || undefined,
+        endDate: parsed.endDate || undefined,
+        sort: parsed.sort || undefined,
+      });
+
+      if (requestId !== requestIdRef.current) return;
       setTasks(response.data);
     } catch (err) {
+      if (requestId !== requestIdRef.current) return;
       setError(err.message);
     } finally {
-      setLoading(false);
+      if (requestId === requestIdRef.current) {
+        setLoading(false);
+      }
     }
-  }, [params]);
+  }, [paramsKey]);
 
   useEffect(() => {
     fetchTasks();
@@ -30,8 +63,6 @@ export function useTasks(initialParams = {}) {
     tasks,
     loading,
     error,
-    params,
-    setParams,
     refresh: fetchTasks,
     createTask: async (data) => {
       await tasksApi.create(data);

@@ -2,6 +2,7 @@
 
 import { useCallback, useEffect, useRef, useState } from "react";
 import { projectsApi } from "@/lib/projects";
+import { fetchCached, invalidateCache } from "@/lib/requestCache";
 
 function serializeParams(params = {}) {
   return JSON.stringify({
@@ -29,15 +30,19 @@ export function useProjects(initialParams = {}) {
 
     try {
       const parsed = JSON.parse(paramsKey);
-      const response = await projectsApi.getAll({
-        search: parsed.search || undefined,
-        status: parsed.status || undefined,
-        quality: parsed.quality || undefined,
-        leadDeveloperId: parsed.leadDeveloperId || undefined,
-        startDate: parsed.startDate || undefined,
-        endDate: parsed.endDate || undefined,
-        sort: parsed.sort || undefined,
-      });
+      const response = await fetchCached(
+        `projects:${paramsKey}`,
+        () =>
+          projectsApi.getAll({
+            search: parsed.search || undefined,
+            status: parsed.status || undefined,
+            quality: parsed.quality || undefined,
+            leadDeveloperId: parsed.leadDeveloperId || undefined,
+            startDate: parsed.startDate || undefined,
+            endDate: parsed.endDate || undefined,
+            sort: parsed.sort || undefined,
+          })
+      );
 
       if (requestId !== requestIdRef.current) return;
       setProjects(response.data);
@@ -62,14 +67,17 @@ export function useProjects(initialParams = {}) {
     refresh: fetchProjects,
     createProject: async (data) => {
       await projectsApi.create(data);
+      invalidateCache("projects:");
       await fetchProjects();
     },
     updateProject: async (id, data) => {
       await projectsApi.update(id, data);
+      invalidateCache("projects:");
       await fetchProjects();
     },
     deleteProject: async (id) => {
       await projectsApi.delete(id);
+      invalidateCache("projects:");
       await fetchProjects();
     },
   };

@@ -173,6 +173,13 @@ export function TasksPageContent() {
     setModalOpen(true);
   };
 
+  useEffect(() => {
+    if (searchParams.get("create") === "1") {
+      setEditingTask(null);
+      setModalOpen(true);
+    }
+  }, [searchParams]);
+
   const openEdit = (task) => {
     setEditingTask(task);
     setModalOpen(true);
@@ -399,7 +406,7 @@ export function TasksPageContent() {
       ) : null}
 
       {loading ? (
-        <TableSkeleton rows={6} cols={9} />
+        <TableSkeleton rows={6} cols={14} />
       ) : tasks.length === 0 ? (
         <EmptyState
           title={tasksData.emptyTitle}
@@ -432,6 +439,7 @@ export function TasksPageContent() {
           task={editingTask}
           projects={projects}
           developers={developers}
+          defaultProjectId={projectId}
           onSubmit={handleSubmit}
           onCancel={() => setModalOpen(false)}
         />

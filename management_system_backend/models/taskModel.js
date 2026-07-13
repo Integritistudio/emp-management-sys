@@ -168,6 +168,11 @@ const update = async (id, data) => {
       ? data.estimated_hours
       : existing.estimated_hours;
 
+  const assignedTo =
+    data.assigned_to !== undefined ? data.assigned_to : existing.assigned_to;
+  const details =
+    data.details !== undefined ? data.details : existing.details;
+
   // Deadline (PDF 10.11 / 11.4): use a manually supplied end time when given;
   // otherwise only recompute (start + estimated) when start time or estimated
   // hours actually changed. Unrelated edits must NOT recompute, or they would
@@ -225,9 +230,9 @@ const update = async (id, data) => {
   const result = await pool.query(
     `UPDATE tasks SET
       project_id = COALESCE($2, project_id),
-      assigned_to = COALESCE($3, assigned_to),
+      assigned_to = $3,
       name = COALESCE($4, name),
-      details = COALESCE($5, details),
+      details = $5,
       complexity = COALESCE($6, complexity),
       priority = COALESCE($7, priority),
       start_time = COALESCE($8, start_time),
@@ -242,9 +247,9 @@ const update = async (id, data) => {
     [
       id,
       data.project_id,
-      data.assigned_to,
+      assignedTo,
       data.name,
-      data.details,
+      details,
       data.complexity,
       data.priority,
       data.start_time,

@@ -1,6 +1,8 @@
 const API_BASE_URL =
   process.env.NEXT_PUBLIC_API_URL || "http://localhost:5000/api";
 
+const inflightGets = new Map();
+
 class ApiError extends Error {
   constructor(message, status, data) {
     super(message);
@@ -22,45 +24,65 @@ function buildQuery(params = {}) {
 
 async function request(endpoint, options = {}) {
   const url = `${API_BASE_URL}${endpoint}`;
+  const method = (options.method || "GET").toUpperCase();
 
-  const config = {
-    credentials: "include",
-    headers: {
-      "Content-Type": "application/json",
-      ...options.headers,
-    },
-    ...options,
+  if (method === "GET" && inflightGets.has(url)) {
+    return inflightGets.get(url);
+  }
+
+  const run = async () => {
+    const config = {
+      credentials: "include",
+      headers: {
+        "Content-Type": "application/json",
+        ...options.headers,
+      },
+      ...options,
+    };
+
+    let response;
+
+    try {
+      response = await fetch(url, config);
+    } catch {
+      throw new ApiError(
+        "Cannot reach the server. Make sure the backend is running on port 5000.",
+        0,
+        null
+      );
+    }
+
+    let data = null;
+
+    try {
+      data = await response.json();
+    } catch {
+      data = null;
+    }
+
+    if (!response.ok) {
+      const fallbackMessage =
+        response.status === 429
+          ? "Too many requests, please try again later."
+          : "Something went wrong";
+      throw new ApiError(
+        data?.message || fallbackMessage,
+        response.status,
+        data
+      );
+    }
+
+    return data;
   };
 
-  let response;
-
-  try {
-    response = await fetch(url, config);
-  } catch {
-    throw new ApiError(
-      "Cannot reach the server. Make sure the backend is running on port 5000.",
-      0,
-      null
-    );
+  if (method === "GET") {
+    const promise = run();
+    inflightGets.set(url, promise);
+    promise.finally(() => inflightGets.delete(url));
+    return promise;
   }
 
-  let data = null;
-
-  try {
-    data = await response.json();
-  } catch {
-    data = null;
-  }
-
-  if (!response.ok) {
-    throw new ApiError(
-      data?.message || "Something went wrong",
-      response.status,
-      data
-    );
-  }
-
-  return data;
+  return run();
 }
 
 async function downloadPost(endpoint, body, filename) {

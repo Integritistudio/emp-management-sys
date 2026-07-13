@@ -3,6 +3,7 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import { teamApi } from "@/lib/team";
 import { extractDistinctTitles } from "@/lib/teamFilters";
+import { fetchCached, invalidateCache } from "@/lib/requestCache";
 
 function serializeParams(params = {}) {
   return JSON.stringify({
@@ -25,7 +26,9 @@ export function useTeam(initialParams = {}) {
 
     try {
       const parsed = JSON.parse(paramsKey);
-      const response = await teamApi.getAll({ sort: parsed.sort || undefined });
+      const response = await fetchCached(`team:${paramsKey}`, () =>
+        teamApi.getAll({ sort: parsed.sort || undefined })
+      );
 
       if (requestId !== requestIdRef.current) return;
 
@@ -58,14 +61,17 @@ export function useTeam(initialParams = {}) {
     refresh: fetchMembers,
     createMember: async (data) => {
       await teamApi.create(data);
+      invalidateCache("team:");
       await fetchMembers();
     },
     updateMember: async (id, data) => {
       await teamApi.update(id, data);
+      invalidateCache("team:");
       await fetchMembers();
     },
     deleteMember: async (id) => {
       await teamApi.delete(id);
+      invalidateCache("team:");
       await fetchMembers();
     },
   };

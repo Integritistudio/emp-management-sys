@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import {
   tasksData,
   TASK_COMPLEXITY_OPTIONS,
@@ -11,13 +11,16 @@ import { Input } from "@/components/ui/Input";
 import { Select } from "@/components/ui/Select";
 import { Button } from "@/components/ui/Button";
 import { ApiError } from "@/lib/api";
-import { fromDatetimeLocalValue, toDatetimeLocalValue } from "@/lib/formatters";
+import { computeTaskDeadline } from "@/lib/businessHours";
+import {
+  formatDateTime,
+  fromDatetimeLocalValue,
+  toDatetimeLocalValue,
+} from "@/lib/formatters";
 
-// PDF 11.1: a task created with the current time defaults to In Progress,
-// so the initial form state (checkbox on) starts as in_progress.
-const emptyForm = {
+const buildEmptyForm = (defaultProjectId = "") => ({
   name: "",
-  project_id: "",
+  project_id: defaultProjectId,
   details: "",
   complexity: "medium",
   priority: "medium",
@@ -28,16 +31,18 @@ const emptyForm = {
   actual_hours: "",
   status: "in_progress",
   use_current_time: true,
-};
+  deadline_manual: false,
+});
 
 export function TaskForm({
   task,
   projects = [],
   developers = [],
+  defaultProjectId = "",
   onSubmit,
   onCancel,
 }) {
-  const [form, setForm] = useState(emptyForm);
+  const [form, setForm] = useState(() => buildEmptyForm(defaultProjectId));
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState("");
 
@@ -56,21 +61,72 @@ export function TaskForm({
         actual_hours: task.actual_hours?.toString() || "",
         status: task.status || "not_started",
         use_current_time: false,
+        deadline_manual: false,
       });
     } else {
-      setForm(emptyForm);
+      setForm(buildEmptyForm(defaultProjectId));
     }
-  }, [task]);
+  }, [task, defaultProjectId]);
+
+  const computedDeadline = useMemo(() => {
+    const startIso = form.start_time
+      ? fromDatetimeLocalValue(form.start_time)
+      : null;
+
+    return computeTaskDeadline({
+      startTime: startIso,
+      estimatedHours: form.estimated_hours,
+      useCurrentTime: !task && form.use_current_time,
+    });
+  }, [
+    form.estimated_hours,
+    form.start_time,
+    form.use_current_time,
+    task,
+  ]);
+
+  const syncDeadlineFromEstimate = (nextForm) => {
+    const startIso = nextForm.start_time
+      ? fromDatetimeLocalValue(nextForm.start_time)
+      : null;
+    const deadline = computeTaskDeadline({
+      startTime: startIso,
+      estimatedHours: nextForm.estimated_hours,
+      useCurrentTime: !task && nextForm.use_current_time,
+    });
+
+    if (deadline) {
+      nextForm.deadline = toDatetimeLocalValue(deadline.toISOString());
+    }
+
+    return nextForm;
+  };
 
   const handleChange = (field) => (e) => {
     const value =
       e.target.type === "checkbox" ? e.target.checked : e.target.value;
+
     setForm((prev) => {
-      const next = { ...prev, [field]: value };
-      // PDF 11.1: starting with the current time marks the task In Progress.
+      let next = { ...prev, [field]: value };
+
       if (field === "use_current_time" && !task) {
         next.status = value ? "in_progress" : "not_started";
       }
+
+      if (field === "deadline") {
+        next.deadline_manual = true;
+      }
+
+      const shouldAutoDeadline =
+        (field === "estimated_hours" ||
+          field === "start_time" ||
+          field === "use_current_time") &&
+        (!task || !next.deadline_manual);
+
+      if (shouldAutoDeadline) {
+        next = syncDeadlineFromEstimate(next);
+      }
+
       return next;
     });
   };
@@ -126,6 +182,12 @@ export function TaskForm({
     value: dev.id,
     label: dev.full_name,
   }));
+
+  const showDeadlineField = task || !form.use_current_time;
+  const deadlinePreview =
+    !task && form.use_current_time && computedDeadline
+      ? formatDateTime(computedDeadline.toISOString())
+      : null;
 
   return (
     <form onSubmit={handleSubmit} className="space-y-4">
@@ -225,7 +287,7 @@ export function TaskForm({
         </label>
       ) : null}
 
-      {!form.use_current_time || task ? (
+      {showDeadlineField ? (
         <div className="grid gap-4 sm:grid-cols-2">
           <Input
             id="start_time"
@@ -234,7 +296,7 @@ export function TaskForm({
             value={form.start_time}
             onChange={handleChange("start_time")}
           />
-          {task ? (
+          <div>
             <Input
               id="deadline"
               type="datetime-local"
@@ -242,7 +304,24 @@ export function TaskForm({
               value={form.deadline}
               onChange={handleChange("deadline")}
             />
-          ) : null}
+            {computedDeadline && !form.deadline_manual && task ? (
+              <p className="mt-1.5 text-xs text-text-muted">
+                {tasksData.form.deadlineAutoHint}
+              </p>
+            ) : null}
+          </div>
+        </div>
+      ) : null}
+
+      {deadlinePreview ? (
+        <div className="rounded-button border border-border bg-gray-50 px-3 py-2 text-sm">
+          <span className="font-medium text-text-primary">
+            {tasksData.form.endTimeLabel}:{" "}
+          </span>
+          <span className="text-text-secondary">{deadlinePreview}</span>
+          <p className="mt-1 text-xs text-text-muted">
+            {tasksData.form.deadlinePreviewHint}
+          </p>
         </div>
       ) : null}
 

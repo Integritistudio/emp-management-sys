@@ -32,6 +32,7 @@ import {
   formatPercent,
   getQualityVariant,
   getStatusVariant,
+  getTaskEndDateTime,
 } from "@/lib/formatters";
 
 export function TeamMemberDetailContent({ memberId }) {
@@ -86,7 +87,7 @@ export function TeamMemberDetailContent({ memberId }) {
     }
   };
 
-  const getEndTime = (task) => task.completed_at || task.deadline;
+  const getEndTime = (task) => getTaskEndDateTime(task);
 
   return (
     <div>
