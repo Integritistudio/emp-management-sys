@@ -32,7 +32,7 @@ export function TaskTimerActions({ task, onPause, onResume, onComplete, loading 
       onClick={(e) => e.stopPropagation()}
       onKeyDown={(e) => e.stopPropagation()}
     >
-      {task.status === "paused" ? (
+      {task.status === "paused" || task.status === "on_hold" ? (
         <TimerActionButton
           label={commonData.actions.resume}
           onClick={() => onResume(task)}

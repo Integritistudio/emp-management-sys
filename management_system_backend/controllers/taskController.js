@@ -87,7 +87,10 @@ const resume = async (req, res, next) => {
     }
     res.json({ message: "Task resumed", data: task });
   } catch (error) {
-    if (error.message.includes("not paused")) {
+    if (
+      error.message.includes("not paused") ||
+      error.message.includes("on-hold")
+    ) {
       return res.status(400).json({ message: error.message });
     }
     next(error);

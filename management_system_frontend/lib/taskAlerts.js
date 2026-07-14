@@ -1,6 +1,13 @@
 const NEAR_DEADLINE_HOURS = 2;
 const HIGH_VARIANCE_HOURS = 2;
 
+function isTimerFrozen(task) {
+  return (
+    Boolean(task.paused_at) &&
+    (task.status === "paused" || task.status === "on_hold")
+  );
+}
+
 export function getTaskAlerts(task) {
   const alerts = [];
   const now = new Date();
@@ -13,9 +20,11 @@ export function getTaskAlerts(task) {
     alerts.push({ key: "on_hold", label: "On Hold", variant: "warning" });
   }
 
+  // PDF 11.2 — do not flag overdue/near-deadline while timer is frozen
   if (
     task.deadline &&
-    !["completed", "cancelled"].includes(task.status)
+    !["completed", "cancelled"].includes(task.status) &&
+    !isTimerFrozen(task)
   ) {
     const deadline = new Date(task.deadline);
     if (now > deadline) {
@@ -32,7 +41,9 @@ export function getTaskAlerts(task) {
     }
   }
 
+  // PDF 11.5 — variance (actual − estimated) for completed tasks with actual time
   if (
+    task.status === "completed" &&
     task.variance !== null &&
     task.variance !== undefined &&
     Number(task.variance) > HIGH_VARIANCE_HOURS
@@ -47,6 +58,7 @@ export function getTaskAlerts(task) {
   if (
     task.deadline &&
     task.status === "in_progress" &&
+    !isTimerFrozen(task) &&
     new Date(task.deadline) < now
   ) {
     alerts.push({ key: "delayed", label: "Delayed", variant: "danger" });

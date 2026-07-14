@@ -4,6 +4,14 @@ const {
   taskVariance,
   addHoursToDate,
 } = require("../services/calculationService");
+const {
+  calculateElapsedHours,
+  pauseTask,
+  holdTask,
+  resumeTask,
+  completeTask,
+  FROZEN_STATUSES,
+} = require("../services/taskTimerService");
 
 const mapTask = (row) => ({
   id: row.id,
@@ -173,14 +181,12 @@ const update = async (id, data) => {
   const details =
     data.details !== undefined ? data.details : existing.details;
 
-  // Deadline (PDF 10.11 / 11.4): use a manually supplied end time when given;
-  // otherwise only recompute (start + estimated) when start time or estimated
-  // hours actually changed. Unrelated edits must NOT recompute, or they would
-  // erase the deadline extension added by pause/resume (PDF 11.2, 11.3).
+  // Deadline (PDF 10.11 / 11.4): manual end time wins; otherwise recompute
+  // when start/estimated change, preserving any pause extension (PDF 11.3).
   const startChanged =
     data.start_time !== undefined &&
     new Date(data.start_time).getTime() !==
-      new Date(existing.start_time).getTime();
+      new Date(existing.start_time || 0).getTime();
   const estimatedChanged =
     data.estimated_hours !== undefined &&
     Number(data.estimated_hours) !== Number(existing.estimated_hours);
@@ -189,28 +195,93 @@ const update = async (id, data) => {
   if (data.deadline !== undefined) {
     deadline = data.deadline;
   } else if (startChanged || estimatedChanged) {
-    deadline = addHoursToDate(startTime, estimatedHours);
+    const newBase = addHoursToDate(startTime, estimatedHours);
+    if (existing.start_time && existing.deadline && existing.estimated_hours != null) {
+      const oldBase = addHoursToDate(
+        existing.start_time,
+        existing.estimated_hours
+      );
+      const extensionMs =
+        new Date(existing.deadline).getTime() - new Date(oldBase).getTime();
+      deadline =
+        extensionMs > 0
+          ? new Date(newBase.getTime() + extensionMs)
+          : newBase;
+    } else {
+      deadline = newBase;
+    }
   } else {
     deadline = existing.deadline;
   }
 
-  // Derive completion-related fields so that marking a task "completed" through
-  // the edit form / bulk change_status behaves the same as the dedicated
-  // complete flow (PDF 12.1): actual time is auto-calculated from the timer
-  // unless the admin manually supplied it. See below for per-status handling.
-  const { calculateElapsedHours } = require("../services/taskTimerService");
-
   let actualHours = data.actual_hours;
   let completedAt = existing.completed_at;
+  let pausedAt = existing.paused_at;
+  let totalPausedHours = existing.total_paused_hours;
+  let nextStatus = data.status !== undefined ? data.status : existing.status;
 
-  const nextStatus = data.status !== undefined ? data.status : existing.status;
+  // PDF 11.2 / 11.3 / 11.6 — status transitions must keep timer fields in sync
+  if (data.status !== undefined && data.status !== existing.status) {
+    if (data.status === "paused" && existing.status === "in_progress") {
+      const paused = pauseTask(existing);
+      nextStatus = paused.status;
+      pausedAt = paused.paused_at;
+    } else if (data.status === "on_hold" && !["completed", "cancelled"].includes(existing.status)) {
+      const held = holdTask(existing);
+      nextStatus = held.status;
+      pausedAt = held.paused_at;
+    } else if (
+      data.status === "in_progress" &&
+      FROZEN_STATUSES.has(existing.status)
+    ) {
+      const resumed = resumeTask(existing);
+      nextStatus = resumed.status;
+      pausedAt = resumed.paused_at;
+      if (resumed.total_paused_hours !== undefined) {
+        totalPausedHours = resumed.total_paused_hours;
+      }
+      if (resumed.deadline !== undefined && data.deadline === undefined) {
+        deadline = resumed.deadline;
+      }
+    } else if (data.status === "completed") {
+      const completion = completeTask(existing, {
+        actual_hours:
+          data.actual_hours !== undefined ? data.actual_hours : undefined,
+        confirm: true,
+      });
+      nextStatus = completion.status;
+      actualHours = completion.actual_hours;
+      completedAt = completion.completed_at;
+      pausedAt = null;
+      if (completion.total_paused_hours !== undefined) {
+        totalPausedHours = completion.total_paused_hours;
+      }
+      if (completion.deadline !== undefined && data.deadline === undefined) {
+        deadline = completion.deadline;
+      }
+    } else if (data.status === "cancelled") {
+      actualHours = data.actual_hours !== undefined ? data.actual_hours : null;
+      completedAt = null;
+      pausedAt = null;
+    } else if (!FROZEN_STATUSES.has(data.status)) {
+      // Leaving freeze without going through resume path
+      if (FROZEN_STATUSES.has(existing.status) && existing.paused_at) {
+        const resumed = resumeTask(existing);
+        totalPausedHours = resumed.total_paused_hours;
+        if (data.deadline === undefined) {
+          deadline = resumed.deadline;
+        }
+      }
+      pausedAt = null;
+    }
+  }
+
   const becomingCompleted =
     nextStatus === "completed" && existing.status !== "completed";
   const leavingCompleted =
     existing.status === "completed" && nextStatus !== "completed";
 
-  if (becomingCompleted) {
-    // Auto-fill actual hours from real elapsed time when not manually provided.
+  if (becomingCompleted && data.status === undefined) {
     if (data.actual_hours === undefined || data.actual_hours === null) {
       actualHours = calculateElapsedHours(
         { ...existing, start_time: startTime },
@@ -218,13 +289,19 @@ const update = async (id, data) => {
       );
     }
     completedAt = new Date();
-  } else if (nextStatus === "cancelled") {
-    // Cancelled tasks are excluded from logged hours / efficiency (PDF 9.5, 21.5).
+    pausedAt = null;
+  } else if (nextStatus === "cancelled" && data.status === undefined) {
     actualHours = data.actual_hours !== undefined ? data.actual_hours : null;
     completedAt = null;
   } else if (leavingCompleted) {
-    // Reopening a completed task clears its completion timestamp.
     completedAt = null;
+  }
+
+  if (data.paused_at !== undefined) {
+    pausedAt = data.paused_at;
+  }
+  if (data.total_paused_hours !== undefined) {
+    totalPausedHours = data.total_paused_hours;
   }
 
   const result = await pool.query(
@@ -241,6 +318,8 @@ const update = async (id, data) => {
       actual_hours = $11,
       status = COALESCE($12, status),
       completed_at = $13,
+      paused_at = $14,
+      total_paused_hours = $15,
       updated_at = NOW()
     WHERE id = $1
     RETURNING id`,
@@ -256,8 +335,10 @@ const update = async (id, data) => {
       estimatedHours,
       deadline,
       actualHours !== undefined ? actualHours : existing.actual_hours,
-      data.status,
+      nextStatus,
       completedAt,
+      pausedAt,
+      totalPausedHours,
     ]
   );
 
@@ -309,8 +390,6 @@ const applyTimerUpdate = async (id, fields) => {
 const pause = async (id) => {
   const task = await findById(id);
   if (!task) return null;
-
-  const { pauseTask } = require("../services/taskTimerService");
   const updates = pauseTask(task);
   return applyTimerUpdate(id, updates);
 };
@@ -318,9 +397,14 @@ const pause = async (id) => {
 const resume = async (id) => {
   const task = await findById(id);
   if (!task) return null;
-
-  const { resumeTask } = require("../services/taskTimerService");
   const updates = resumeTask(task);
+  return applyTimerUpdate(id, updates);
+};
+
+const hold = async (id) => {
+  const task = await findById(id);
+  if (!task) return null;
+  const updates = holdTask(task);
   return applyTimerUpdate(id, updates);
 };
 
@@ -328,7 +412,6 @@ const complete = async (id, options = {}) => {
   const task = await findById(id);
   if (!task) return null;
 
-  const { completeTask } = require("../services/taskTimerService");
   const result = completeTask(task, options);
 
   if (result.requiresConfirmation) {
@@ -356,14 +439,38 @@ const bulkUpdate = async (taskIds, action, value) => {
         case "assign":
           updated = await update(taskId, { assigned_to: value || null });
           break;
-        case "change_status":
-          updated = await update(taskId, { status: value });
+        case "change_status": {
+          if (value === "completed") {
+            const completion = await complete(taskId, { confirm: false });
+            if (completion.requiresConfirmation) {
+              results.push({
+                id: taskId,
+                success: false,
+                requiresConfirmation: true,
+                message: completion.message,
+              });
+              continue;
+            }
+            updated = completion.data;
+          } else if (value === "paused") {
+            updated = await pause(taskId);
+          } else if (value === "on_hold") {
+            updated = await hold(taskId);
+          } else if (
+            value === "in_progress" &&
+            FROZEN_STATUSES.has(task.status)
+          ) {
+            updated = await resume(taskId);
+          } else {
+            updated = await update(taskId, { status: value });
+          }
           break;
+        }
         case "move_project":
           updated = await update(taskId, { project_id: value });
           break;
         case "on_hold":
-          updated = await update(taskId, { status: "on_hold", paused_at: null });
+          updated = await hold(taskId);
           break;
         case "complete": {
           const completion = await complete(taskId, { confirm: value === true });
@@ -402,6 +509,7 @@ module.exports = {
   remove,
   pause,
   resume,
+  hold,
   complete,
   bulkUpdate,
 };

@@ -241,15 +241,9 @@ export function ProjectDetailContent({ projectId }) {
               <TableHeaderCell>{tasksData.table.priority}</TableHeaderCell>
               <TableHeaderCell>{tasksData.table.startTime}</TableHeaderCell>
               <TableHeaderCell>{projectsData.detail.taskTable.deadline}</TableHeaderCell>
-              <TableHeaderCell>
-                <span>{projectsData.detail.taskTable.completionTime}</span>
-                <span className="mt-0.5 block text-[10px] font-normal normal-case text-text-muted">
-                  {projectsData.detail.taskTable.completionTimeHint}
-                </span>
-              </TableHeaderCell>
               <TableHeaderCell>{projectsData.detail.taskTable.estimated}</TableHeaderCell>
               <TableHeaderCell>{projectsData.detail.taskTable.actual}</TableHeaderCell>
-              <TableHeaderCell>{tasksData.table.variance}</TableHeaderCell>
+              <TableHeaderCell>{projectsData.detail.taskTable.variance}</TableHeaderCell>
               <TableHeaderCell>
                 <span>{projectsData.detail.taskTable.status}</span>
                 <span className="mt-0.5 block text-[10px] font-normal normal-case text-text-muted">
@@ -273,11 +267,6 @@ export function ProjectDetailContent({ projectId }) {
                 <TableCell>{formatLabel(task.priority)}</TableCell>
                 <TableCell>{formatDateTime(task.start_time)}</TableCell>
                 <TableCell>{formatDateTime(task.deadline)}</TableCell>
-                <TableCell>
-                  {task.status === "completed" && task.completed_at
-                    ? formatDateTime(task.completed_at)
-                    : "—"}
-                </TableCell>
                 <TableCell>{formatHours(task.estimated_hours)}</TableCell>
                 <TableCell>{formatHours(task.actual_hours)}</TableCell>
                 <TableCell>

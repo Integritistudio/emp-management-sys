@@ -287,11 +287,15 @@ export function TasksPageContent() {
     if (!bulkAction) return;
     setActionLoading(true);
     try {
+      const isBulkComplete =
+        bulkAction === "complete" ||
+        (bulkAction === "change_status" && bulkValue === "completed");
+
       const response = await bulkUpdate({
         taskIds: selectedIds,
         action: bulkAction,
         value: bulkValue || undefined,
-        confirm: bulkAction === "complete" ? false : undefined,
+        confirm: isBulkComplete ? false : undefined,
       });
 
       if (response.requiresConfirmation) {

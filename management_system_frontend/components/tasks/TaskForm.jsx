@@ -183,11 +183,8 @@ export function TaskForm({
     label: dev.full_name,
   }));
 
-  const showDeadlineField = task || !form.use_current_time;
-  const deadlinePreview =
-    !task && form.use_current_time && computedDeadline
-      ? formatDateTime(computedDeadline.toISOString())
-      : null;
+  const showStartTimeField = !form.use_current_time || Boolean(task);
+  const showEditableDeadline = Boolean(task);
 
   return (
     <form onSubmit={handleSubmit} className="space-y-4">
@@ -287,7 +284,7 @@ export function TaskForm({
         </label>
       ) : null}
 
-      {showDeadlineField ? (
+      {showStartTimeField ? (
         <div className="grid gap-4 sm:grid-cols-2">
           <Input
             id="start_time"
@@ -296,29 +293,47 @@ export function TaskForm({
             value={form.start_time}
             onChange={handleChange("start_time")}
           />
-          <div>
-            <Input
-              id="deadline"
-              type="datetime-local"
-              label={tasksData.form.endTimeLabel}
-              value={form.deadline}
-              onChange={handleChange("deadline")}
-            />
-            {computedDeadline && !form.deadline_manual && task ? (
-              <p className="mt-1.5 text-xs text-text-muted">
-                {tasksData.form.deadlineAutoHint}
+          {showEditableDeadline ? (
+            <div>
+              <Input
+                id="deadline"
+                type="datetime-local"
+                label={tasksData.form.deadlineLabel}
+                value={form.deadline}
+                onChange={handleChange("deadline")}
+              />
+              {computedDeadline && !form.deadline_manual ? (
+                <p className="mt-1.5 text-xs text-text-muted">
+                  {tasksData.form.deadlineAutoHint}
+                </p>
+              ) : null}
+            </div>
+          ) : (
+            <div>
+              <label className="mb-1.5 block text-sm font-medium text-text-primary">
+                {tasksData.form.deadlineLabel}
+              </label>
+              <p className="rounded-button border border-border bg-gray-50 px-3.5 py-2.5 text-sm text-text-primary">
+                {computedDeadline
+                  ? formatDateTime(computedDeadline.toISOString())
+                  : "—"}
               </p>
-            ) : null}
-          </div>
+              <p className="mt-1.5 text-xs text-text-muted">
+                {tasksData.form.deadlinePreviewHint}
+              </p>
+            </div>
+          )}
         </div>
       ) : null}
 
-      {deadlinePreview ? (
+      {!task && form.use_current_time && computedDeadline ? (
         <div className="rounded-button border border-border bg-gray-50 px-3 py-2 text-sm">
           <span className="font-medium text-text-primary">
-            {tasksData.form.endTimeLabel}:{" "}
+            {tasksData.form.deadlineLabel}:{" "}
           </span>
-          <span className="text-text-secondary">{deadlinePreview}</span>
+          <span className="text-text-secondary">
+            {formatDateTime(computedDeadline.toISOString())}
+          </span>
           <p className="mt-1 text-xs text-text-muted">
             {tasksData.form.deadlinePreviewHint}
           </p>
@@ -341,7 +356,11 @@ export function TaskForm({
             <p className="mt-1.5 text-xs text-text-muted">
               {tasksData.form.actualAutoHint}
             </p>
-          ) : null}
+          ) : (
+            <p className="mt-1.5 text-xs text-text-muted">
+              {tasksData.form.actualHint}
+            </p>
+          )}
         </div>
       ) : null}
 

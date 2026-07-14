@@ -32,7 +32,6 @@ import {
   formatPercent,
   getQualityVariant,
   getStatusVariant,
-  getTaskEndDateTime,
 } from "@/lib/formatters";
 
 export function TeamMemberDetailContent({ memberId }) {
@@ -86,8 +85,6 @@ export function TeamMemberDetailContent({ memberId }) {
       setShowDeleteConfirm(false);
     }
   };
-
-  const getEndTime = (task) => getTaskEndDateTime(task);
 
   return (
     <div>
@@ -196,7 +193,7 @@ export function TeamMemberDetailContent({ memberId }) {
               <TableHeaderCell>{teamData.detail.taskTable.project}</TableHeaderCell>
               <TableHeaderCell>{teamData.detail.taskTable.details}</TableHeaderCell>
               <TableHeaderCell>{teamData.detail.taskTable.startTime}</TableHeaderCell>
-              <TableHeaderCell>{teamData.detail.taskTable.endTime}</TableHeaderCell>
+              <TableHeaderCell>{teamData.detail.taskTable.deadline}</TableHeaderCell>
               <TableHeaderCell>{teamData.detail.taskTable.estimated}</TableHeaderCell>
               <TableHeaderCell>{teamData.detail.taskTable.actual}</TableHeaderCell>
               <TableHeaderCell>{teamData.detail.taskTable.status}</TableHeaderCell>
@@ -214,7 +211,7 @@ export function TeamMemberDetailContent({ memberId }) {
                   {task.details || "—"}
                 </TableCell>
                 <TableCell>{formatDateTime(task.start_time)}</TableCell>
-                <TableCell>{formatDateTime(getEndTime(task))}</TableCell>
+                <TableCell>{formatDateTime(task.deadline)}</TableCell>
                 <TableCell>{formatHours(task.estimated_hours)}</TableCell>
                 <TableCell>{formatHours(task.actual_hours)}</TableCell>
                 <TableCell>
