@@ -15,7 +15,4 @@ export const navigationData = {
     label: "Sign Out",
     icon: "LogOut",
   },
-  signedIn: {
-    label: "Signed in as",
-  },
 };

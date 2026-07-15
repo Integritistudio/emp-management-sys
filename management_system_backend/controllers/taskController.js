@@ -48,6 +48,14 @@ const update = async (req, res, next) => {
     }
     res.json({ message: "Task updated", data: task });
   } catch (error) {
+    if (error.requiresConfirmation) {
+      return res.status(200).json({
+        requiresConfirmation: true,
+        message: error.message,
+        elapsed_hours: error.elapsed_hours,
+        data: error.task,
+      });
+    }
     next(error);
   }
 };
@@ -87,7 +95,10 @@ const resume = async (req, res, next) => {
     }
     res.json({ message: "Task resumed", data: task });
   } catch (error) {
-    if (error.message.includes("not paused")) {
+    if (
+      error.message.includes("not paused") ||
+      error.message.includes("on-hold")
+    ) {
       return res.status(400).json({ message: error.message });
     }
     next(error);
@@ -125,14 +136,31 @@ const complete = async (req, res, next) => {
 
 const bulkUpdate = async (req, res, next) => {
   try {
-    const { taskIds, action, value, confirm } = req.body;
-    const bulkValue = action === "complete" ? confirm === true : value;
-    const results = await taskModel.bulkUpdate(taskIds, action, bulkValue);
+    const { taskIds, action, value, confirm, actual_hours } = req.body;
+    const bulkValue =
+      action === "complete"
+        ? { confirm: confirm === true, actual_hours }
+        : value;
+    const { results, summary } = await taskModel.bulkUpdate(
+      taskIds,
+      action,
+      bulkValue
+    );
 
     const needsConfirmation = results.filter((r) => r.requiresConfirmation);
+    const parts = [];
+    if (summary.updated) parts.push(`${summary.updated} updated`);
+    if (summary.skipped) parts.push(`${summary.skipped} skipped`);
+    if (summary.failed) parts.push(`${summary.failed} failed`);
+    if (summary.pending) parts.push(`${summary.pending} need confirmation`);
+
     res.json({
-      message: "Bulk action processed",
+      message:
+        parts.length > 0
+          ? `Bulk action processed: ${parts.join(", ")}.`
+          : "Bulk action processed.",
       data: results,
+      summary,
       requiresConfirmation: needsConfirmation.length > 0,
       pending: needsConfirmation,
     });

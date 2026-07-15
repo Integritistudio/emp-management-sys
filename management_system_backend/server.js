@@ -5,6 +5,7 @@ const helmet = require("helmet");
 const cookieParser = require("cookie-parser");
 const swaggerUi = require("swagger-ui-express");
 const initDatabase = require("./db/init");
+const seedAdminIfNeeded = require("./db/seedAdmin");
 const routes = require("./routes");
 const swaggerSpec = require("./config/swagger");
 const requestLogger = require("./middleware/requestLogger");
@@ -100,6 +101,7 @@ async function startServer() {
   try {
     console.log("[STARTUP] Connecting to PostgreSQL...");
     await initDatabase();
+    await seedAdminIfNeeded();
 
     const server = app.listen(PORT, () => {
       console.log("-------------------------------------------");

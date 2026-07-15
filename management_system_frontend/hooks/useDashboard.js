@@ -1,37 +1,61 @@
 "use client";
 
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { dashboardApi } from "@/lib/dashboard";
+
+function serializeParams(params = {}) {
+  return JSON.stringify({
+    period: params.period || "week",
+    startDate: params.startDate || "",
+    endDate: params.endDate || "",
+  });
+}
 
 export function useDashboard(initialParams = {}) {
   const [stats, setStats] = useState(null);
   const [teamPerformance, setTeamPerformance] = useState([]);
-  const [weekdayBreakdown, setWeekdayBreakdown] = useState([]);
+  const [weekdayBreakdown, setWeekdayBreakdown] = useState(null);
   const [matrix, setMatrix] = useState(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
-  const [params, setParams] = useState(initialParams);
+  const requestIdRef = useRef(0);
+  const paramsKey = serializeParams(initialParams);
 
   const fetchDashboard = useCallback(async () => {
+    const requestId = ++requestIdRef.current;
     setLoading(true);
     setError("");
+
     try {
+      const parsed = JSON.parse(paramsKey);
+      const query = {
+        period: parsed.period || "week",
+        startDate: parsed.startDate || undefined,
+        endDate: parsed.endDate || undefined,
+      };
+
       const [statsRes, teamRes, weekdayRes, matrixRes] = await Promise.all([
-        dashboardApi.getStats(params),
-        dashboardApi.getTeamPerformance(params),
-        dashboardApi.getWeekdayBreakdown(params),
+        dashboardApi.getStats(query),
+        dashboardApi.getTeamPerformance(query),
+        dashboardApi.getWeekdayBreakdown(query),
         dashboardApi.getMatrix(),
       ]);
+
+      if (requestId !== requestIdRef.current) return;
+
       setStats(statsRes.data);
-      setTeamPerformance(teamRes.data);
-      setWeekdayBreakdown(weekdayRes.data);
+      setTeamPerformance(teamRes.data || []);
+      setWeekdayBreakdown(weekdayRes.data || null);
       setMatrix(matrixRes.data);
     } catch (err) {
-      setError(err.message);
+      if (requestId !== requestIdRef.current) return;
+      setError(err.message || "Failed to load dashboard");
     } finally {
-      setLoading(false);
+      if (requestId === requestIdRef.current) {
+        setLoading(false);
+      }
     }
-  }, [params]);
+  }, [paramsKey]);
 
   useEffect(() => {
     fetchDashboard();
@@ -44,8 +68,6 @@ export function useDashboard(initialParams = {}) {
     matrix,
     loading,
     error,
-    params,
-    setParams,
     refresh: fetchDashboard,
   };
 }

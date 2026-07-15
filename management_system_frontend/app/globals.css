@@ -154,6 +154,8 @@
 
   .filter-date {
     @apply filter-control-base rounded-md px-3;
+    min-width: 0;
+    max-width: 100%;
   }
 
   .filter-search-input {
@@ -162,11 +164,13 @@
 
   .filter-field {
     width: var(--filter-field-width);
+    max-width: 100%;
     @apply min-w-0 shrink-0;
   }
 
   .filter-field-wide {
     width: var(--filter-field-width-wide);
+    max-width: 100%;
     @apply min-w-0 shrink-0;
   }
 
@@ -180,8 +184,35 @@
     @apply grid flex-1 gap-3 sm:grid-cols-2 lg:ml-auto;
   }
 
-  .filter-panel-wide {
-    max-width: var(--filter-panel-wide-max-width);
-    @apply flex flex-col gap-3 lg:ml-auto;
+  /* Projects/Tasks: shared right edge for filter rows + table */
+  .filter-toolbar {
+    @apply flex w-full flex-col gap-3;
+  }
+
+  .filter-toolbar-end {
+    @apply flex w-full flex-wrap items-end justify-end gap-3;
+  }
+
+  .filter-toolbar-bottom {
+    @apply flex w-full flex-wrap items-end gap-3;
+  }
+
+  .filter-toolbar-bottom .filter-toolbar-end {
+    width: auto;
+    @apply ml-auto shrink-0;
+  }
+
+  .filter-date-pair {
+    @apply flex flex-nowrap items-end gap-3;
+  }
+
+  .filter-toolbar .filter-search-wrap {
+    width: min(100%, var(--filter-search-max-width));
+    max-width: var(--filter-search-max-width);
+    @apply w-auto shrink-0;
+  }
+
+  .filter-toolbar-search {
+    max-width: var(--filter-search-max-width);
   }
 }

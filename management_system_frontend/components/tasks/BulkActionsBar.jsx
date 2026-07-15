@@ -42,36 +42,39 @@ export function BulkActionsBar({
   const needsValue = ["assign", "change_status", "move_project"].includes(action);
 
   return (
-    <div className="mb-4 flex flex-wrap items-end gap-3 rounded-card border border-primary/20 bg-sidebar-active/30 p-4">
-      <p className="text-sm font-medium text-text-primary">
-        {selectedCount} {tasksData.bulk.selected}
-      </p>
-      <Select
-        id="bulkAction"
-        label={tasksData.bulk.title}
-        value={action}
-        onChange={(e) => onActionChange(e.target.value)}
-        options={BULK_ACTIONS}
-        placeholder={tasksData.bulk.selectAction}
-        className="min-w-[180px]"
-      />
-      {needsValue ? (
+    <div className="mb-4 space-y-2 rounded-card border border-primary/20 bg-sidebar-active/30 p-4">
+      <div className="flex flex-wrap items-end gap-3">
+        <p className="text-sm font-medium text-text-primary">
+          {selectedCount} {tasksData.bulk.selected}
+        </p>
         <Select
-          id="bulkValue"
-          label={tasksData.bulk.selectValue}
-          value={value}
-          onChange={(e) => onValueChange(e.target.value)}
-          options={valueOptions()}
-          placeholder={tasksData.bulk.selectValue}
+          id="bulkAction"
+          label={tasksData.bulk.title}
+          value={action}
+          onChange={(e) => onActionChange(e.target.value)}
+          options={BULK_ACTIONS}
+          placeholder={tasksData.bulk.selectAction}
           className="min-w-[180px]"
         />
-      ) : null}
-      <Button onClick={onApply} loading={loading} disabled={!action || (needsValue && !value)}>
-        {tasksData.bulk.apply}
-      </Button>
-      <Button variant="ghost" onClick={onClear}>
-        {tasksData.bulk.clear}
-      </Button>
+        {needsValue ? (
+          <Select
+            id="bulkValue"
+            label={tasksData.bulk.selectValue}
+            value={value}
+            onChange={(e) => onValueChange(e.target.value)}
+            options={valueOptions()}
+            placeholder={tasksData.bulk.selectValue}
+            className="min-w-[180px]"
+          />
+        ) : null}
+        <Button onClick={onApply} loading={loading} disabled={!action || (needsValue && !value)}>
+          {tasksData.bulk.apply}
+        </Button>
+        <Button variant="ghost" onClick={onClear}>
+          {tasksData.bulk.clear}
+        </Button>
+      </div>
+      <p className="text-xs text-text-muted">{tasksData.bulk.hint}</p>
     </div>
   );
 }

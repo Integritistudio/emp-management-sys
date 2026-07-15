@@ -64,12 +64,11 @@ export const projectsData = {
     taskTable: {
       details: "Task Details",
       deadline: "Deadline / End Time",
-      completionTime: "Completion Time",
-      completionTimeHint: "(when the task was finished)",
+      estimated: "Estimated Timeline",
+      actual: "Actual Time",
+      variance: "Variance",
       status: "Task Status",
       statusHint: "(current state of each task)",
-      estimated: "Estimated Time",
-      actual: "Actual Time",
     },
   },
 };

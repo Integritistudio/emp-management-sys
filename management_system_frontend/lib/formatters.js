@@ -39,13 +39,36 @@ export function formatDateTime(dateString) {
   });
 }
 
-/** PDF 8.6 — completed tasks show completion time; others show deadline. */
-export function getTaskEndDateTime(task) {
+/** Planned deadline (start + estimated / office hours). */
+export function getTaskDeadline(task) {
+  return task?.deadline || null;
+}
+
+/** Total hours taken to complete the task. */
+export function getTaskEndTimeHours(task) {
+  if (!task || task.actual_hours === null || task.actual_hours === undefined) {
+    return null;
+  }
+  return Number(task.actual_hours);
+}
+
+/** When the task was marked completed. */
+export function getTaskCompletedAt(task) {
   if (!task) return null;
   if (task.status === "completed" && task.completed_at) {
     return task.completed_at;
   }
-  return task.deadline;
+  return null;
+}
+
+/** @deprecated Prefer getTaskEndTimeHours / getTaskCompletedAt. */
+export function getTaskEndDateTime(task) {
+  return getTaskCompletedAt(task) || getTaskDeadline(task);
+}
+
+/** @deprecated Prefer getTaskEndTimeHours. */
+export function getTaskEndTime(task) {
+  return getTaskCompletedAt(task);
 }
 
 export function formatHours(value) {

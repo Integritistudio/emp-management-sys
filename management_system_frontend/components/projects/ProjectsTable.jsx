@@ -22,6 +22,10 @@ import {
   getStatusVariant,
 } from "@/lib/formatters";
 
+const STICKY_NAME_HEAD = "sticky left-0 z-30 bg-parchment";
+const STICKY_NAME_CELL =
+  "sticky left-0 z-20 bg-surface group-hover:bg-parchment font-medium text-primary";
+
 export function ProjectsTable({ projects, onEdit, onDelete, sort, onSort }) {
   const router = useRouter();
 
@@ -29,7 +33,7 @@ export function ProjectsTable({ projects, onEdit, onDelete, sort, onSort }) {
     <Table>
       <TableHead>
         <TableRow>
-          <TableHeaderCell>
+          <TableHeaderCell className={STICKY_NAME_HEAD}>
             <SortableHeader
               label={projectsData.table.name}
               column="name"
@@ -77,7 +81,9 @@ export function ProjectsTable({ projects, onEdit, onDelete, sort, onSort }) {
             clickable
             onClick={() => router.push(`/projects/${project.id}`)}
           >
-            <TableCell className="font-medium text-primary">{project.name}</TableCell>
+            <TableCell className={STICKY_NAME_CELL}>
+              <div className="min-w-[140px]">{project.name}</div>
+            </TableCell>
             <TableCell>{project.lead_developer_name || "—"}</TableCell>
             <TableCell>{formatDate(project.start_date)}</TableCell>
             <TableCell>

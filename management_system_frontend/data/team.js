@@ -29,9 +29,9 @@ export const teamData = {
       project: "Project",
       details: "Task Details",
       startTime: "Start Time",
-      endTime: "End Time",
-      estimated: "Estimated Time",
-      actual: "Logged Hours",
+      deadline: "Deadline / End Time",
+      estimated: "Estimated Timeline",
+      actual: "Actual Time",
       status: "Status",
     },
     roles: {

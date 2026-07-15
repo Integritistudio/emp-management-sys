@@ -14,17 +14,24 @@ export function DashboardPageContent() {
   const router = useRouter();
   const searchParams = useSearchParams();
   const [period, setPeriod] = useState(searchParams.get("period") || "week");
-  const [startDate, setStartDate] = useState(searchParams.get("startDate") || "");
+  const [startDate, setStartDate] = useState(
+    searchParams.get("startDate") || ""
+  );
   const [endDate, setEndDate] = useState(searchParams.get("endDate") || "");
 
-  const params = useMemo(
-    () => ({
-      period: period === "custom" ? "custom" : period,
-      startDate: period === "custom" ? startDate || undefined : undefined,
-      endDate: period === "custom" ? endDate || undefined : undefined,
-    }),
-    [period, startDate, endDate]
-  );
+  const customReady =
+    period !== "custom" || Boolean(startDate && endDate);
+
+  const params = useMemo(() => {
+    if (period === "custom") {
+      if (!startDate || !endDate) {
+        // Keep last valid week filter until both custom dates exist
+        return { period: "week" };
+      }
+      return { period: "custom", startDate, endDate };
+    }
+    return { period };
+  }, [period, startDate, endDate]);
 
   const {
     stats,
@@ -50,58 +57,78 @@ export function DashboardPageContent() {
   }, [syncUrl]);
 
   return (
-    <div>
-      <div className="mb-6 flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
+    <div className="space-y-8">
+      <div className="flex flex-col gap-4 lg:flex-row lg:items-end lg:justify-between">
         <div>
           <h1 className="heading-page">{dashboardData.pageTitle}</h1>
           <p className="text-subtitle">{dashboardData.subtitle}</p>
         </div>
 
-        <div className="flex flex-wrap items-end gap-2">
-          {["week", "month", "custom"].map((key) => (
-            <Button
-              key={key}
-              variant={period === key ? "primary" : "secondary"}
-              onClick={() => setPeriod(key)}
-            >
-              {dashboardData.filters[key]}
-            </Button>
-          ))}
-          {period === "custom" ? (
-            <>
-              <input
-                type="date"
-                value={startDate}
-                onChange={(e) => setStartDate(e.target.value)}
-                className="h-11 rounded-md border border-border bg-surface px-4 text-body focus:border-primary focus:outline-none focus:outline-2 focus:outline-offset-0 focus:outline-primary-focus"
-              />
-              <input
-                type="date"
-                value={endDate}
-                onChange={(e) => setEndDate(e.target.value)}
-                className="h-11 rounded-md border border-border bg-surface px-4 text-body focus:border-primary focus:outline-none focus:outline-2 focus:outline-offset-0 focus:outline-primary-focus"
-              />
-            </>
+        <div className="flex flex-col gap-2">
+          <div className="flex flex-wrap items-end gap-2">
+            {["week", "month", "custom"].map((key) => (
+              <Button
+                key={key}
+                variant={period === key ? "primary" : "secondary"}
+                onClick={() => setPeriod(key)}
+              >
+                {dashboardData.filters[key]}
+              </Button>
+            ))}
+            {period === "custom" ? (
+              <>
+                <label className="flex flex-col gap-1 text-xs font-medium text-text-secondary">
+                  {dashboardData.filters.startDate}
+                  <input
+                    type="date"
+                    value={startDate}
+                    onChange={(e) => setStartDate(e.target.value)}
+                    className="h-11 rounded-md border border-border bg-surface px-3 text-sm text-body focus:border-primary focus:outline-none focus:outline-2 focus:outline-offset-0 focus:outline-primary-focus"
+                  />
+                </label>
+                <label className="flex flex-col gap-1 text-xs font-medium text-text-secondary">
+                  {dashboardData.filters.endDate}
+                  <input
+                    type="date"
+                    value={endDate}
+                    min={startDate || undefined}
+                    onChange={(e) => setEndDate(e.target.value)}
+                    className="h-11 rounded-md border border-border bg-surface px-3 text-sm text-body focus:border-primary focus:outline-none focus:outline-2 focus:outline-offset-0 focus:outline-primary-focus"
+                  />
+                </label>
+              </>
+            ) : null}
+          </div>
+          {period === "custom" && !customReady ? (
+            <p className="text-xs text-warning">
+              {dashboardData.filters.customHint}
+            </p>
           ) : null}
         </div>
       </div>
 
       {error ? (
-        <div className="mb-4 rounded-button border border-red-200 bg-red-50 px-3 py-2 text-sm text-danger">
+        <div className="rounded-button border border-red-200 bg-red-50 px-3 py-2 text-sm text-danger">
           {error}
         </div>
       ) : null}
 
-      <div className="mb-8">
+      <section>
         <AnalyticsCards stats={stats} loading={loading} />
-      </div>
+      </section>
 
-      <div className="mb-8 grid gap-6 lg:grid-cols-2">
+      <section className="grid gap-6 xl:grid-cols-2">
         <TeamPerformanceTable data={teamPerformance} loading={loading} />
-        <WeekdayBreakdown data={weekdayBreakdown} loading={loading} />
-      </div>
+        <WeekdayBreakdown
+          data={weekdayBreakdown}
+          loading={loading}
+          developersList={teamPerformance}
+        />
+      </section>
 
-      <TeamMatrix matrix={matrix} loading={loading} onUpdated={refresh} />
+      <section>
+        <TeamMatrix matrix={matrix} loading={loading} onUpdated={refresh} />
+      </section>
     </div>
   );
 }

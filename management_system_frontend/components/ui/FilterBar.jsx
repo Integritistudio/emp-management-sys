@@ -11,9 +11,9 @@ import {
 function DateRangeFields({ dateRange, useFixedWidth = false }) {
   if (!dateRange) return null;
 
-  const fieldClass = useFixedWidth ? "filter-field" : "min-w-0";
+  const fieldClass = useFixedWidth ? "filter-field" : "min-w-0 w-full";
 
-  return (
+  const fields = (
     <>
       <FilterDate
         id="startDate"
@@ -31,6 +31,12 @@ function DateRangeFields({ dateRange, useFixedWidth = false }) {
       />
     </>
   );
+
+  if (useFixedWidth) {
+    return <div className="filter-date-pair">{fields}</div>;
+  }
+
+  return fields;
 }
 
 function DefaultFilterPanel({ filters, dateRange }) {
@@ -53,10 +59,20 @@ function DefaultFilterPanel({ filters, dateRange }) {
   );
 }
 
-function TwoRowFilterPanel({ filters, dateRange }) {
+/**
+ * Row 1: dropdown filters (right-aligned, same edge as table)
+ * Row 2: search left + dates right (same right edge as row 1)
+ */
+function TwoRowFilterToolbar({
+  search,
+  onSearchChange,
+  searchPlaceholder,
+  filters,
+  dateRange,
+}) {
   return (
-    <div className="filter-panel-wide">
-      <div className="flex flex-wrap items-end justify-end gap-3">
+    <div className="filter-toolbar">
+      <div className="filter-toolbar-end">
         {filters.map((filter) => (
           <FilterSelect
             key={filter.key}
@@ -70,11 +86,22 @@ function TwoRowFilterPanel({ filters, dateRange }) {
           />
         ))}
       </div>
-      {dateRange ? (
-        <div className="flex flex-wrap items-end justify-end gap-3">
-          <DateRangeFields dateRange={dateRange} useFixedWidth />
-        </div>
-      ) : null}
+
+      <div className="filter-toolbar-bottom">
+        {onSearchChange ? (
+          <FilterSearch
+            value={search}
+            onChange={(e) => onSearchChange(e.target.value)}
+            placeholder={searchPlaceholder}
+            className="filter-toolbar-search"
+          />
+        ) : null}
+        {dateRange ? (
+          <div className="filter-toolbar-end">
+            <DateRangeFields dateRange={dateRange} useFixedWidth />
+          </div>
+        ) : null}
+      </div>
     </div>
   );
 }
@@ -94,15 +121,28 @@ export function FilterBar({
       ? "justify-end"
       : "justify-end lg:max-w-[var(--filter-panel-max-width)] lg:ml-auto";
 
+  if (filtersLayout === "twoRow") {
+    return (
+      <div>
+        <TwoRowFilterToolbar
+          search={search}
+          onSearchChange={onSearchChange}
+          searchPlaceholder={searchPlaceholder}
+          filters={filters}
+          dateRange={dateRange}
+        />
+        {onClear ? (
+          <div className={`mt-2 flex h-5 ${clearAlignClass}`}>
+            <FilterClearButton visible={hasActiveFilters} onClick={onClear} />
+          </div>
+        ) : null}
+      </div>
+    );
+  }
+
   return (
     <div>
-      <div
-        className={`flex flex-col gap-3 ${
-          filtersLayout === "twoRow"
-            ? "md:flex-row md:items-end md:justify-between"
-            : "lg:flex-row lg:items-end"
-        }`}
-      >
+      <div className="flex flex-col gap-3 lg:flex-row lg:items-end">
         {onSearchChange ? (
           <FilterSearch
             value={search}
@@ -110,12 +150,7 @@ export function FilterBar({
             placeholder={searchPlaceholder}
           />
         ) : null}
-
-        {filtersLayout === "twoRow" ? (
-          <TwoRowFilterPanel filters={filters} dateRange={dateRange} />
-        ) : (
-          <DefaultFilterPanel filters={filters} dateRange={dateRange} />
-        )}
+        <DefaultFilterPanel filters={filters} dateRange={dateRange} />
       </div>
 
       {onClear ? (

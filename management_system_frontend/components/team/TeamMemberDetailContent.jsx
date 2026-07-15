@@ -32,8 +32,10 @@ import {
   formatPercent,
   getQualityVariant,
   getStatusVariant,
-  getTaskEndDateTime,
 } from "@/lib/formatters";
+import { getTaskRowClass } from "@/lib/taskAlerts";
+import { TaskAlertBadges } from "@/components/tasks/TaskAlertBadges";
+import { PaginatedTable } from "@/components/ui/PaginatedTable";
 
 export function TeamMemberDetailContent({ memberId }) {
   const router = useRouter();
@@ -86,8 +88,6 @@ export function TeamMemberDetailContent({ memberId }) {
       setShowDeleteConfirm(false);
     }
   };
-
-  const getEndTime = (task) => getTaskEndDateTime(task);
 
   return (
     <div>
@@ -142,44 +142,48 @@ export function TeamMemberDetailContent({ memberId }) {
         </div>
       ) : (
         <div className="mb-8">
-          <Table>
-            <TableHead>
-              <TableRow>
-                <TableHeaderCell>{teamData.detail.projectTable.name}</TableHeaderCell>
-                <TableHeaderCell>{teamData.detail.projectTable.role}</TableHeaderCell>
-                <TableHeaderCell>{teamData.detail.projectTable.status}</TableHeaderCell>
-                <TableHeaderCell>{teamData.detail.projectTable.quality}</TableHeaderCell>
-                <TableHeaderCell>{teamData.detail.projectTable.startDate}</TableHeaderCell>
-                <TableHeaderCell>{teamData.detail.projectTable.tasks}</TableHeaderCell>
-              </TableRow>
-            </TableHead>
-            <TableBody>
-              {member.projects.map((project) => (
-                <TableRow
-                  key={project.id}
-                  clickable
-                  onClick={() => router.push(`/projects/${project.id}`)}
-                >
-                  <TableCell className="font-medium text-primary">{project.name}</TableCell>
-                  <TableCell>
-                    {teamData.detail.roles[project.role] || formatLabel(project.role)}
-                  </TableCell>
-                  <TableCell>
-                    <Badge variant={getStatusVariant(project.status)}>
-                      {formatLabel(project.status)}
-                    </Badge>
-                  </TableCell>
-                  <TableCell>
-                    <Badge variant={getQualityVariant(project.quality)}>
-                      {formatLabel(project.quality)}
-                    </Badge>
-                  </TableCell>
-                  <TableCell>{formatDate(project.start_date)}</TableCell>
-                  <TableCell>{project.member_tasks}</TableCell>
-                </TableRow>
-              ))}
-            </TableBody>
-          </Table>
+          <PaginatedTable items={member.projects}>
+            {(pageProjects) => (
+              <Table>
+                <TableHead>
+                  <TableRow>
+                    <TableHeaderCell>{teamData.detail.projectTable.name}</TableHeaderCell>
+                    <TableHeaderCell>{teamData.detail.projectTable.role}</TableHeaderCell>
+                    <TableHeaderCell>{teamData.detail.projectTable.status}</TableHeaderCell>
+                    <TableHeaderCell>{teamData.detail.projectTable.quality}</TableHeaderCell>
+                    <TableHeaderCell>{teamData.detail.projectTable.startDate}</TableHeaderCell>
+                    <TableHeaderCell>{teamData.detail.projectTable.tasks}</TableHeaderCell>
+                  </TableRow>
+                </TableHead>
+                <TableBody>
+                  {pageProjects.map((project) => (
+                    <TableRow
+                      key={project.id}
+                      clickable
+                      onClick={() => router.push(`/projects/${project.id}`)}
+                    >
+                      <TableCell className="font-medium text-primary">{project.name}</TableCell>
+                      <TableCell>
+                        {teamData.detail.roles[project.role] || formatLabel(project.role)}
+                      </TableCell>
+                      <TableCell>
+                        <Badge variant={getStatusVariant(project.status)}>
+                          {formatLabel(project.status)}
+                        </Badge>
+                      </TableCell>
+                      <TableCell>
+                        <Badge variant={getQualityVariant(project.quality)}>
+                          {formatLabel(project.quality)}
+                        </Badge>
+                      </TableCell>
+                      <TableCell>{formatDate(project.start_date)}</TableCell>
+                      <TableCell>{project.member_tasks}</TableCell>
+                    </TableRow>
+                  ))}
+                </TableBody>
+              </Table>
+            )}
+          </PaginatedTable>
         </div>
       )}
 
@@ -189,43 +193,50 @@ export function TeamMemberDetailContent({ memberId }) {
       {!member.tasks?.length ? (
         <EmptyState title={teamData.detail.noTasks} description="" />
       ) : (
-        <Table>
-          <TableHead>
-            <TableRow>
-              <TableHeaderCell>{teamData.detail.taskTable.name}</TableHeaderCell>
-              <TableHeaderCell>{teamData.detail.taskTable.project}</TableHeaderCell>
-              <TableHeaderCell>{teamData.detail.taskTable.details}</TableHeaderCell>
-              <TableHeaderCell>{teamData.detail.taskTable.startTime}</TableHeaderCell>
-              <TableHeaderCell>{teamData.detail.taskTable.endTime}</TableHeaderCell>
-              <TableHeaderCell>{teamData.detail.taskTable.estimated}</TableHeaderCell>
-              <TableHeaderCell>{teamData.detail.taskTable.actual}</TableHeaderCell>
-              <TableHeaderCell>{teamData.detail.taskTable.status}</TableHeaderCell>
-            </TableRow>
-          </TableHead>
-          <TableBody>
-            {member.tasks.map((task) => (
-              <TableRow key={task.id}>
-                <TableCell className="font-medium">{task.name}</TableCell>
-                <TableCell>{task.project_name || "—"}</TableCell>
-                <TableCell
-                  className="max-w-[220px] truncate"
-                  title={task.details || undefined}
-                >
-                  {task.details || "—"}
-                </TableCell>
-                <TableCell>{formatDateTime(task.start_time)}</TableCell>
-                <TableCell>{formatDateTime(getEndTime(task))}</TableCell>
-                <TableCell>{formatHours(task.estimated_hours)}</TableCell>
-                <TableCell>{formatHours(task.actual_hours)}</TableCell>
-                <TableCell>
-                  <Badge variant={getStatusVariant(task.status)}>
-                    {formatLabel(task.status)}
-                  </Badge>
-                </TableCell>
-              </TableRow>
-            ))}
-          </TableBody>
-        </Table>
+        <PaginatedTable items={member.tasks}>
+          {(pageTasks) => (
+            <Table>
+              <TableHead>
+                <TableRow>
+                  <TableHeaderCell>{teamData.detail.taskTable.name}</TableHeaderCell>
+                  <TableHeaderCell>{teamData.detail.taskTable.project}</TableHeaderCell>
+                  <TableHeaderCell>{teamData.detail.taskTable.details}</TableHeaderCell>
+                  <TableHeaderCell>{teamData.detail.taskTable.startTime}</TableHeaderCell>
+                  <TableHeaderCell>{teamData.detail.taskTable.deadline}</TableHeaderCell>
+                  <TableHeaderCell>{teamData.detail.taskTable.estimated}</TableHeaderCell>
+                  <TableHeaderCell>{teamData.detail.taskTable.actual}</TableHeaderCell>
+                  <TableHeaderCell>{teamData.detail.taskTable.status}</TableHeaderCell>
+                </TableRow>
+              </TableHead>
+              <TableBody>
+                {pageTasks.map((task) => (
+                  <TableRow key={task.id} className={getTaskRowClass(task)}>
+                    <TableCell className="font-medium">
+                      <div>{task.name}</div>
+                      <TaskAlertBadges task={task} />
+                    </TableCell>
+                    <TableCell>{task.project_name || "—"}</TableCell>
+                    <TableCell
+                      className="max-w-[220px] truncate"
+                      title={task.details || undefined}
+                    >
+                      {task.details || "—"}
+                    </TableCell>
+                    <TableCell>{formatDateTime(task.start_time)}</TableCell>
+                    <TableCell>{formatDateTime(task.deadline)}</TableCell>
+                    <TableCell>{formatHours(task.estimated_hours)}</TableCell>
+                    <TableCell>{formatHours(task.actual_hours)}</TableCell>
+                    <TableCell>
+                      <Badge variant={getStatusVariant(task.status)}>
+                        {formatLabel(task.status)}
+                      </Badge>
+                    </TableCell>
+                  </TableRow>
+                ))}
+              </TableBody>
+            </Table>
+          )}
+        </PaginatedTable>
       )}
 
       <Modal
