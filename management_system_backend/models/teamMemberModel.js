@@ -3,6 +3,7 @@ const { parseSort } = require("../utils/queryBuilder");
 const {
   efficiencyRate,
   taskVariance,
+  teamQualityLabel,
 } = require("../services/calculationService");
 
 const TEAM_STATS_JOIN = `
@@ -46,7 +47,7 @@ const mapTeamMember = (row) => {
     total_tasks_assigned: row.total_tasks || 0,
     total_time_logged: completedActual,
     efficiency_rate: efficiencyRate(completedEstimated, completedActual),
-    matrix_rating: `${row.output_level} output / ${row.quality_level} quality`,
+    matrix_rating: teamQualityLabel(row.output_level, row.quality_level),
     created_at: row.created_at,
     updated_at: row.updated_at,
   };

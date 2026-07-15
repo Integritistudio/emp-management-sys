@@ -17,6 +17,7 @@ import { Modal } from "@/components/ui/Modal";
 import { FilterBar } from "@/components/ui/FilterBar";
 import { EmptyState } from "@/components/ui/EmptyState";
 import { TableSkeleton } from "@/components/ui/TableSkeleton";
+import { PaginatedTable } from "@/components/ui/PaginatedTable";
 import { ProjectsTable } from "./ProjectsTable";
 import { ProjectForm } from "./ProjectForm";
 import { ConfirmDialog } from "@/components/ui/ConfirmDialog";
@@ -222,13 +223,17 @@ export function ProjectsPageContent() {
           description={projectsData.emptyDescription}
         />
       ) : (
-        <ProjectsTable
-          projects={projects}
-          onEdit={openEdit}
-          onDelete={handleDelete}
-          sort={currentSort}
-          onSort={handleSort}
-        />
+        <PaginatedTable items={projects}>
+          {(pageProjects) => (
+            <ProjectsTable
+              projects={pageProjects}
+              onEdit={openEdit}
+              onDelete={handleDelete}
+              sort={currentSort}
+              onSort={handleSort}
+            />
+          )}
+        </PaginatedTable>
       )}
 
       <Modal

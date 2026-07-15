@@ -1,7 +1,9 @@
 export function Table({ children, className = "" }) {
   return (
-    <div className={`overflow-x-auto rounded-card border border-border ${className}`}>
-      <table className="min-w-full divide-y divide-border-light text-body">{children}</table>
+    <div className={`w-full overflow-x-auto rounded-card border border-border ${className}`}>
+      <table className="w-full min-w-max divide-y divide-border-light text-body">
+        {children}
+      </table>
     </div>
   );
 }
@@ -19,7 +21,7 @@ export function TableRow({ children, className = "", onClick, clickable = false 
 
   return (
     <tr
-      className={`transition-colors hover:bg-parchment/60 ${
+      className={`group transition-colors hover:bg-parchment/60 ${
         isClickable ? "cursor-pointer" : ""
       } ${className}`}
       onClick={onClick}

@@ -9,21 +9,36 @@ import { Input } from "@/components/ui/Input";
 import { Button } from "@/components/ui/Button";
 import { PageLoader } from "@/components/ui/PageLoader";
 import { ApiError } from "@/lib/api";
+import { hasErrors, isValidEmail, required } from "@/lib/formValidation";
 
 export default function LoginForm() {
   const { login, loading } = useAuth({ redirectTo: "/dashboard" });
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [error, setError] = useState("");
+  const [fieldErrors, setFieldErrors] = useState({});
   const [submitting, setSubmitting] = useState(false);
 
   if (loading) {
     return <PageLoader />;
   }
 
+  const validate = () => {
+    const errors = {
+      email:
+        required(email, "Email is required") ||
+        (!isValidEmail(email) ? "Please enter a valid email address" : ""),
+      password: required(password, "Password is required"),
+    };
+    setFieldErrors(errors);
+    return !hasErrors(errors);
+  };
+
   const handleSubmit = async (e) => {
     e.preventDefault();
     setError("");
+    if (!validate()) return;
+
     setSubmitting(true);
 
     try {
@@ -49,7 +64,7 @@ export default function LoginForm() {
         </div>
 
         <Card>
-          <form onSubmit={handleSubmit} className="space-y-5">
+          <form onSubmit={handleSubmit} noValidate className="space-y-5">
             {error ? (
               <div className="rounded-md border border-red-200 bg-red-50 px-3 py-2 text-caption text-danger">
                 {error}
@@ -62,8 +77,16 @@ export default function LoginForm() {
               type="email"
               placeholder={loginData.emailPlaceholder}
               value={email}
-              onChange={(e) => setEmail(e.target.value)}
-              required
+              onChange={(e) => {
+                setEmail(e.target.value);
+                setFieldErrors((prev) => {
+                  if (!prev.email) return prev;
+                  const next = { ...prev };
+                  delete next.email;
+                  return next;
+                });
+              }}
+              error={fieldErrors.email}
               autoComplete="email"
             />
 
@@ -73,8 +96,16 @@ export default function LoginForm() {
               type="password"
               placeholder={loginData.passwordPlaceholder}
               value={password}
-              onChange={(e) => setPassword(e.target.value)}
-              required
+              onChange={(e) => {
+                setPassword(e.target.value);
+                setFieldErrors((prev) => {
+                  if (!prev.password) return prev;
+                  const next = { ...prev };
+                  delete next.password;
+                  return next;
+                });
+              }}
+              error={fieldErrors.password}
               autoComplete="current-password"
             />
 

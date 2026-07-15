@@ -1,4 +1,4 @@
-const { addWallClockHours } = require("./calculationService");
+const { addWallClockHours, addHoursToDate } = require("./calculationService");
 
 const MS_PER_HOUR = 60 * 60 * 1000;
 
@@ -18,6 +18,23 @@ const calculateElapsedHours = (task, now = new Date()) => {
   }
 
   return Math.max(0, Number((elapsedMs / MS_PER_HOUR).toFixed(2)));
+};
+
+/**
+ * Completed day/time for analytics:
+ * completed_at = start_time + actual_hours (office hours only).
+ * Pause/on-hold duration is NOT added — actual already excludes frozen time.
+ */
+const resolveCompletedAt = (task, actualHours) => {
+  const start = task?.start_time;
+  if (!start) return new Date();
+
+  const hours = Number(actualHours);
+  if (!Number.isFinite(hours) || hours < 0) {
+    return new Date(start);
+  }
+
+  return addHoursToDate(start, hours);
 };
 
 /** Deadline accounting for an active pause/hold freeze (PDF 11.2). */
@@ -44,6 +61,19 @@ const isOverdue = (task, now = new Date()) => {
   }
 
   return now > new Date(task.deadline);
+};
+
+/**
+ * PDF §12 — confirmation only when past deadline OR past estimated work time.
+ */
+const needsCompletionConfirmation = (task, now = new Date()) => {
+  if (isOverdue(task, now)) return true;
+
+  const estimated = Number(task.estimated_hours) || 0;
+  if (estimated <= 0) return false;
+
+  const elapsed = calculateElapsedHours(task, now);
+  return elapsed > estimated;
 };
 
 const pauseTask = (task) => {
@@ -76,12 +106,10 @@ const holdTask = (task) => {
  * Resume from paused or on_hold (PDF 11.3).
  * Extends deadline by the frozen duration so pause time is not counted.
  */
-const resumeTask = (task) => {
+const resumeTask = (task, now = new Date()) => {
   if (!FROZEN_STATUSES.has(task.status)) {
     throw new Error("Only paused or on-hold tasks can be resumed");
   }
-
-  const now = new Date();
 
   if (!task.paused_at) {
     return {
@@ -104,42 +132,45 @@ const resumeTask = (task) => {
   };
 };
 
-const completeTask = (task, { confirm = false, actual_hours } = {}) => {
+const COMPLETE_CONFIRM_MESSAGE =
+  "Was this task actually completed within the estimated time?";
+
+const completeTask = (task, { confirm = false, actual_hours, now = new Date() } = {}) => {
   if (["completed", "cancelled"].includes(task.status)) {
     throw new Error("Task is already finished");
   }
 
-  const now = new Date();
-
   // Apply any open pause before overdue/elapsed checks so frozen time is fair
   let workingTask = task;
   if (task.paused_at && FROZEN_STATUSES.has(task.status)) {
-    const resumed = resumeTask(task);
+    const resumed = resumeTask(task, now);
     workingTask = { ...task, ...resumed };
   }
 
-  const overdue = isOverdue(workingTask, now);
+  const needsConfirm = needsCompletionConfirmation(workingTask, now);
+  const hasManualActual =
+    actual_hours !== undefined && actual_hours !== null && actual_hours !== "";
 
-  if (overdue && !confirm) {
+  // Manual actual (PDF 11.4 / 12.3) counts as an answered confirmation
+  if (needsConfirm && !confirm && !hasManualActual) {
     return {
       requiresConfirmation: true,
-      message:
-        "Was this task actually completed within the estimated time?",
+      message: COMPLETE_CONFIRM_MESSAGE,
       overdue: true,
       elapsed_hours: calculateElapsedHours(workingTask, now),
     };
   }
 
-  const actualHours =
-    actual_hours !== undefined && actual_hours !== null
-      ? Number(actual_hours)
-      : calculateElapsedHours(workingTask, now);
+  const actualHours = hasManualActual
+    ? Number(actual_hours)
+    : calculateElapsedHours(workingTask, now);
 
   return {
     requiresConfirmation: false,
     status: "completed",
     actual_hours: actualHours,
-    completed_at: now,
+    // Completed day follows work effort: start + actual (office hours)
+    completed_at: resolveCompletedAt(workingTask, actualHours),
     paused_at: null,
     total_paused_hours: workingTask.total_paused_hours,
     deadline: workingTask.deadline,
@@ -148,11 +179,14 @@ const completeTask = (task, { confirm = false, actual_hours } = {}) => {
 
 module.exports = {
   calculateElapsedHours,
+  resolveCompletedAt,
   getEffectiveDeadline,
   isOverdue,
+  needsCompletionConfirmation,
   pauseTask,
   holdTask,
   resumeTask,
   completeTask,
+  COMPLETE_CONFIRM_MESSAGE,
   FROZEN_STATUSES,
 };

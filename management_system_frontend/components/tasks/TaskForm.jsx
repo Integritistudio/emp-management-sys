@@ -17,6 +17,11 @@ import {
   fromDatetimeLocalValue,
   toDatetimeLocalValue,
 } from "@/lib/formatters";
+import {
+  hasErrors,
+  positiveNumber,
+  required,
+} from "@/lib/formValidation";
 
 const buildEmptyForm = (defaultProjectId = "") => ({
   name: "",
@@ -45,6 +50,7 @@ export function TaskForm({
   const [form, setForm] = useState(() => buildEmptyForm(defaultProjectId));
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState("");
+  const [fieldErrors, setFieldErrors] = useState({});
 
   useEffect(() => {
     if (task) {
@@ -66,6 +72,8 @@ export function TaskForm({
     } else {
       setForm(buildEmptyForm(defaultProjectId));
     }
+    setFieldErrors({});
+    setError("");
   }, [task, defaultProjectId]);
 
   const computedDeadline = useMemo(() => {
@@ -102,9 +110,20 @@ export function TaskForm({
     return nextForm;
   };
 
+  const clearFieldError = (field) => {
+    setFieldErrors((prev) => {
+      if (!prev[field]) return prev;
+      const next = { ...prev };
+      delete next[field];
+      return next;
+    });
+  };
+
   const handleChange = (field) => (e) => {
     const value =
       e.target.type === "checkbox" ? e.target.checked : e.target.value;
+
+    clearFieldError(field);
 
     setForm((prev) => {
       let next = { ...prev, [field]: value };
@@ -131,9 +150,34 @@ export function TaskForm({
     });
   };
 
+  const validate = () => {
+    const errors = {
+      name: required(form.name, "Task name is required"),
+      project_id: required(form.project_id, "Project is required"),
+      estimated_hours:
+        required(form.estimated_hours, "Estimated hours is required") ||
+        positiveNumber(form.estimated_hours, {
+          min: 0.1,
+          message: "Estimated hours must be at least 0.1",
+        }),
+    };
+
+    if (task && form.actual_hours !== "") {
+      errors.actual_hours = positiveNumber(form.actual_hours, {
+        min: 0,
+        message: "Actual hours cannot be negative",
+      });
+    }
+
+    setFieldErrors(errors);
+    return !hasErrors(errors);
+  };
+
   const handleSubmit = async (e) => {
     e.preventDefault();
     setError("");
+    if (!validate()) return;
+
     setSubmitting(true);
     try {
       const payload = {
@@ -187,7 +231,7 @@ export function TaskForm({
   const showEditableDeadline = Boolean(task);
 
   return (
-    <form onSubmit={handleSubmit} className="space-y-4">
+    <form onSubmit={handleSubmit} noValidate className="space-y-4">
       {error ? (
         <div className="rounded-button border border-red-200 bg-red-50 px-3 py-2 text-sm text-danger">
           {error}
@@ -200,7 +244,7 @@ export function TaskForm({
         placeholder={tasksData.form.namePlaceholder}
         value={form.name}
         onChange={handleChange("name")}
-        required
+        error={fieldErrors.name}
       />
       <Select
         id="project_id"
@@ -209,7 +253,7 @@ export function TaskForm({
         onChange={handleChange("project_id")}
         options={projectOptions}
         placeholder={tasksData.form.projectPlaceholder}
-        required
+        error={fieldErrors.project_id}
       />
       <div>
         <label
@@ -256,12 +300,12 @@ export function TaskForm({
           id="estimated_hours"
           type="number"
           min="0.1"
-          step="0.1"
+          step="any"
           label={tasksData.form.estimatedLabel}
           placeholder={tasksData.form.estimatedPlaceholder}
           value={form.estimated_hours}
           onChange={handleChange("estimated_hours")}
-          required
+          error={fieldErrors.estimated_hours}
         />
         <Select
           id="status"
@@ -292,6 +336,7 @@ export function TaskForm({
             label={tasksData.form.startTimeLabel}
             value={form.start_time}
             onChange={handleChange("start_time")}
+            error={fieldErrors.start_time}
           />
           {showEditableDeadline ? (
             <div>
@@ -301,6 +346,7 @@ export function TaskForm({
                 label={tasksData.form.deadlineLabel}
                 value={form.deadline}
                 onChange={handleChange("deadline")}
+                error={fieldErrors.deadline}
               />
               {computedDeadline && !form.deadline_manual ? (
                 <p className="mt-1.5 text-xs text-text-muted">
@@ -346,21 +392,24 @@ export function TaskForm({
             id="actual_hours"
             type="number"
             min="0"
-            step="0.1"
+            step="any"
             label={tasksData.form.actualLabel}
             placeholder={tasksData.form.actualPlaceholder}
             value={form.actual_hours}
             onChange={handleChange("actual_hours")}
+            error={fieldErrors.actual_hours}
           />
-          {form.status === "completed" && form.actual_hours === "" ? (
-            <p className="mt-1.5 text-xs text-text-muted">
-              {tasksData.form.actualAutoHint}
-            </p>
-          ) : (
-            <p className="mt-1.5 text-xs text-text-muted">
-              {tasksData.form.actualHint}
-            </p>
-          )}
+          {!fieldErrors.actual_hours ? (
+            form.status === "completed" && form.actual_hours === "" ? (
+              <p className="mt-1.5 text-xs text-text-muted">
+                {tasksData.form.actualAutoHint}
+              </p>
+            ) : (
+              <p className="mt-1.5 text-xs text-text-muted">
+                {tasksData.form.actualHint}
+              </p>
+            )
+          ) : null}
         </div>
       ) : null}
 

@@ -19,8 +19,15 @@ import {
   formatLabel,
   getStatusVariant,
 } from "@/lib/formatters";
-import { getTaskAlerts, getTaskRowClass } from "@/lib/taskAlerts";
+import { getTaskRowClass, getTaskStickyCellClass } from "@/lib/taskAlerts";
+import { TaskAlertBadges } from "./TaskAlertBadges";
 import { TaskTimerActions } from "./TaskTimerActions";
+
+/** Sticky checkbox + task name: same look, stays visible while scrolling. */
+const STICKY_SELECT_HEAD = "sticky left-0 z-30 w-12 bg-parchment";
+const STICKY_NAME_HEAD = "sticky left-12 z-30 bg-parchment";
+const STICKY_SELECT_CELL = "sticky left-0 z-20 w-12";
+const STICKY_NAME_CELL = "sticky left-12 z-20";
 
 export function TasksTable({
   tasks,
@@ -36,13 +43,14 @@ export function TasksTable({
   sort,
   onSort,
 }) {
-  const allSelected = tasks.length > 0 && selectedIds.length === tasks.length;
+  const allSelected =
+    tasks.length > 0 && tasks.every((task) => selectedIds.includes(task.id));
 
   return (
     <Table>
       <TableHead>
         <TableRow>
-          <TableHeaderCell className="w-10">
+          <TableHeaderCell className={STICKY_SELECT_HEAD}>
             <input
               type="checkbox"
               checked={allSelected}
@@ -51,7 +59,7 @@ export function TasksTable({
               aria-label="Select all tasks"
             />
           </TableHeaderCell>
-          <TableHeaderCell>
+          <TableHeaderCell className={STICKY_NAME_HEAD}>
             <SortableHeader
               label={tasksData.table.name}
               column="name"
@@ -105,14 +113,12 @@ export function TasksTable({
               onSort={onSort}
             />
           </TableHeaderCell>
-          <TableHeaderCell className="sticky right-0 bg-surface">
-            {tasksData.table.actions}
-          </TableHeaderCell>
+          <TableHeaderCell>{tasksData.table.actions}</TableHeaderCell>
         </TableRow>
       </TableHead>
       <TableBody>
         {tasks.map((task) => {
-          const alerts = getTaskAlerts(task);
+          const stickyBg = getTaskStickyCellClass(task);
           return (
             <TableRow
               key={task.id}
@@ -121,6 +127,7 @@ export function TasksTable({
               onClick={() => onEdit(task)}
             >
               <TableCell
+                className={`${STICKY_SELECT_CELL} ${stickyBg}`}
                 onClick={(e) => e.stopPropagation()}
                 onKeyDown={(e) => e.stopPropagation()}
               >
@@ -132,19 +139,11 @@ export function TasksTable({
                   aria-label={`Select ${task.name}`}
                 />
               </TableCell>
-              <TableCell>
+              <TableCell className={`${STICKY_NAME_CELL} ${stickyBg}`}>
                 <div className="min-w-[140px] font-medium text-text-primary">
                   {task.name}
                 </div>
-                {alerts.length > 0 ? (
-                  <div className="mt-1 flex flex-wrap gap-1">
-                    {alerts.map((alert) => (
-                      <Badge key={alert.key} variant={alert.variant}>
-                        {tasksData.alerts[alert.key] || alert.label}
-                      </Badge>
-                    ))}
-                  </div>
-                ) : null}
+                <TaskAlertBadges task={task} />
               </TableCell>
               <TableCell>
                 {task.project_id && task.project_name ? (
@@ -187,7 +186,7 @@ export function TasksTable({
                 </Badge>
               </TableCell>
               <TableCell
-                className="sticky right-0 bg-surface"
+                className="whitespace-nowrap"
                 onClick={(e) => e.stopPropagation()}
                 onKeyDown={(e) => e.stopPropagation()}
               >

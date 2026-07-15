@@ -35,6 +35,9 @@ import {
   getQualityVariant,
   getStatusVariant,
 } from "@/lib/formatters";
+import { getTaskRowClass } from "@/lib/taskAlerts";
+import { TaskAlertBadges } from "@/components/tasks/TaskAlertBadges";
+import { PaginatedTable } from "@/components/ui/PaginatedTable";
 
 export function ProjectDetailContent({ projectId }) {
   const router = useRouter();
@@ -231,6 +234,8 @@ export function ProjectDetailContent({ projectId }) {
           description={projectsData.detail.noTasks}
         />
       ) : (
+        <PaginatedTable items={project.tasks}>
+          {(pageTasks) => (
         <Table>
           <TableHead>
             <TableRow>
@@ -253,9 +258,12 @@ export function ProjectDetailContent({ projectId }) {
             </TableRow>
           </TableHead>
           <TableBody>
-            {project.tasks.map((task) => (
-              <TableRow key={task.id}>
-                <TableCell className="font-medium">{task.name}</TableCell>
+            {pageTasks.map((task) => (
+              <TableRow key={task.id} className={getTaskRowClass(task)}>
+                <TableCell className="font-medium">
+                  <div>{task.name}</div>
+                  <TaskAlertBadges task={task} />
+                </TableCell>
                 <TableCell>{task.assigned_to_name || "—"}</TableCell>
                 <TableCell
                   className="max-w-[200px] truncate"
@@ -283,6 +291,8 @@ export function ProjectDetailContent({ projectId }) {
             ))}
           </TableBody>
         </Table>
+          )}
+        </PaginatedTable>
       )}
 
       <Modal

@@ -5,6 +5,7 @@ import { useRouter, useSearchParams } from "next/navigation";
 import { Download } from "lucide-react";
 import { reportsData } from "@/data/reports";
 import { TASK_STATUS_OPTIONS } from "@/data/tasks";
+import { PROJECT_STATUS_OPTIONS } from "@/data/projects";
 import { useReports } from "@/hooks/useReports";
 import { useTeam } from "@/hooks/useTeam";
 import { useProjects } from "@/hooks/useProjects";
@@ -12,7 +13,12 @@ import { Button } from "@/components/ui/Button";
 import { FilterBar } from "@/components/ui/FilterBar";
 import { ReportSummary } from "./ReportSummary";
 import { ReportCharts } from "./ReportCharts";
-import { TeamReportTable, ProjectReportTable } from "./ReportTables";
+import {
+  TeamReportTable,
+  ProjectReportTable,
+  DeveloperDetailPanel,
+  ProjectDetailPanel,
+} from "./ReportTables";
 import { ExportPdfModal } from "./ExportPdfModal";
 import { reportsApi } from "@/lib/reports";
 
@@ -64,7 +70,10 @@ export function ReportsPageContent() {
   }, [syncUrl]);
 
   const hasActiveFilters = Boolean(
-    developerId || projectId || status || (period === "custom" && (startDate || endDate))
+    developerId ||
+      projectId ||
+      status ||
+      (period === "custom" && (startDate || endDate))
   );
 
   const clearFilters = () => {
@@ -86,10 +95,16 @@ export function ReportsPageContent() {
     label: p.name,
   }));
 
+  const statusOptions =
+    activeTab === "project" ? PROJECT_STATUS_OPTIONS : TASK_STATUS_OPTIONS;
+
   const handleExport = async (exportParams) => {
+    // PDF §16 — export uses Start/End from modal; keep entity filters from page
     const body = {
-      ...params,
-      ...exportParams,
+      period: "custom",
+      startDate: exportParams.startDate,
+      endDate: exportParams.endDate,
+      status: params.status,
       developerId: activeTab === "team" ? developerId || undefined : undefined,
       projectId: activeTab === "project" ? projectId || undefined : undefined,
     };
@@ -125,6 +140,7 @@ export function ReportsPageContent() {
               setActiveTab(tab);
               setDeveloperId("");
               setProjectId("");
+              setStatus("");
             }}
           >
             {tab === "team" ? reportsData.tabs.team : reportsData.tabs.project}
@@ -169,7 +185,7 @@ export function ReportsPageContent() {
               label: reportsData.filters.status,
               value: status,
               onChange: setStatus,
-              options: TASK_STATUS_OPTIONS,
+              options: statusOptions,
               placeholder: reportsData.filters.allStatuses,
             },
           ]}
@@ -196,25 +212,61 @@ export function ReportsPageContent() {
         </div>
       ) : null}
 
-      <ReportSummary summary={data?.summary} loading={loading} />
+      <ReportSummary
+        summary={data?.summary}
+        loading={loading}
+        type={activeTab}
+        selectedMode={
+          showTeamDetail ? "developer" : showProjectDetail ? "project" : null
+        }
+        selectedName={
+          showTeamDetail
+            ? data?.member?.full_name || ""
+            : showProjectDetail
+              ? data?.project?.name || ""
+              : ""
+        }
+        entityMeta={
+          showTeamDetail
+            ? {
+                title: data?.member?.title,
+                matrix_rating: data?.member?.matrix_rating,
+              }
+            : showProjectDetail
+              ? {
+                  lead: data?.project?.lead_developer_name,
+                  status: data?.project?.status,
+                  quality: data?.project?.quality,
+                }
+              : null
+        }
+      />
 
       {activeTab === "team" ? (
-        <TeamReportTable
-          developers={data?.developers}
+        showTeamDetail ? (
+          <DeveloperDetailPanel
+            member={data?.member}
+            developer={data?.developer}
+            projects={data?.projects_worked_on}
+            tasks={data?.tasks}
+            loading={loading}
+            hideMetricStrip
+          />
+        ) : (
+          <TeamReportTable developers={data?.developers} loading={loading} />
+        )
+      ) : showProjectDetail ? (
+        <ProjectDetailPanel
+          project={data?.project}
           tasks={data?.tasks}
           loading={loading}
-          showDetail={showTeamDetail}
+          hideMetricStrip
         />
       ) : (
-        <ProjectReportTable
-          projects={data?.projects}
-          tasks={data?.tasks}
-          loading={loading}
-          showDetail={showProjectDetail}
-        />
+        <ProjectReportTable projects={data?.projects} loading={loading} />
       )}
 
-      <ReportCharts charts={data?.charts} loading={loading} />
+      <ReportCharts charts={data?.charts} loading={loading} period={period} />
 
       <ExportPdfModal
         open={exportOpen}

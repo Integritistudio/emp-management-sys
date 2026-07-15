@@ -2,7 +2,7 @@
 
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
-import { Plus } from "lucide-react";
+import { Plus, X } from "lucide-react";
 import {
   tasksData,
   TASK_COMPLEXITY_OPTIONS,
@@ -19,6 +19,7 @@ import { Modal } from "@/components/ui/Modal";
 import { FilterBar } from "@/components/ui/FilterBar";
 import { EmptyState } from "@/components/ui/EmptyState";
 import { TableSkeleton } from "@/components/ui/TableSkeleton";
+import { PaginatedTable } from "@/components/ui/PaginatedTable";
 import { TasksTable } from "./TasksTable";
 import { TaskForm } from "./TaskForm";
 import { BulkActionsBar } from "./BulkActionsBar";
@@ -52,6 +53,13 @@ export function TasksPageContent() {
   const [completionMode, setCompletionMode] = useState("single");
   const [taskToDelete, setTaskToDelete] = useState(null);
   const [deleteLoading, setDeleteLoading] = useState(false);
+  const [bulkResult, setBulkResult] = useState(null);
+
+  useEffect(() => {
+    if (!bulkResult) return undefined;
+    const timer = setTimeout(() => setBulkResult(null), 10000);
+    return () => clearTimeout(timer);
+  }, [bulkResult]);
 
   const { projects } = useProjects();
   const { members: developers } = useTeam();
@@ -187,7 +195,50 @@ export function TasksPageContent() {
 
   const handleSubmit = async (data) => {
     if (editingTask) {
-      await updateTask(editingTask.id, data);
+      const becomingCompleted =
+        data.status === "completed" && editingTask.status !== "completed";
+
+      if (becomingCompleted) {
+        // PDF §12 — complete via timer endpoint so confirmation can run.
+        // Persist other field edits first without flipping status to completed.
+        const { status: _status, actual_hours: actualHours, ...rest } = data;
+        const hasManual =
+          actualHours !== undefined &&
+          actualHours !== null &&
+          actualHours !== "";
+
+        await updateTask(editingTask.id, {
+          ...rest,
+          status: editingTask.status,
+        });
+
+        const response = await completeTask(
+          editingTask.id,
+          hasManual,
+          hasManual ? parseFloat(actualHours) : undefined
+        );
+
+        if (response.requiresConfirmation) {
+          setModalOpen(false);
+          setEditingTask(null);
+          setCompletionTask(editingTask);
+          setCompletionElapsed(response.elapsed_hours);
+          setCompletionMode("single");
+          setCompletionOpen(true);
+          return;
+        }
+      } else {
+        const response = await updateTask(editingTask.id, data);
+        if (response?.requiresConfirmation) {
+          setModalOpen(false);
+          setEditingTask(null);
+          setCompletionTask(editingTask);
+          setCompletionElapsed(response.elapsed_hours);
+          setCompletionMode("single");
+          setCompletionOpen(true);
+          return;
+        }
+      }
     } else {
       await createTask(data);
     }
@@ -253,11 +304,13 @@ export function TasksPageContent() {
           useManual ? actualHours : undefined
         );
       } else if (completionMode === "bulk") {
-        await bulkUpdate({
+        const response = await bulkUpdate({
           taskIds: selectedIds,
           action: "complete",
           confirm: true,
+          actual_hours: useManual ? actualHours : undefined,
         });
+        setBulkResult(formatBulkResult(response));
         setSelectedIds([]);
         setBulkAction("");
         setBulkValue("");
@@ -275,17 +328,37 @@ export function TasksPageContent() {
     );
   };
 
-  const toggleSelectAll = () => {
-    if (selectedIds.length === tasks.length) {
-      setSelectedIds([]);
-    } else {
-      setSelectedIds(tasks.map((t) => t.id));
+  const formatBulkResult = (response) => {
+    const summary = response.summary || {};
+    const parts = [];
+    if (summary.updated) {
+      parts.push(tasksData.bulk.resultUpdated(summary.updated));
     }
+    if (summary.skipped) {
+      parts.push(tasksData.bulk.resultSkipped(summary.skipped));
+    }
+    if (summary.failed) {
+      parts.push(tasksData.bulk.resultFailed(summary.failed));
+    }
+    const skippedDetails = (response.data || [])
+      .filter((row) => (row.skipped || (!row.success && row.message)) && row.message)
+      .slice(0, 8)
+      .map((row) => `${row.name || "Task"}: ${row.message}`);
+
+    const noneUpdated = !summary.updated;
+    return {
+      message: parts.length
+        ? parts.join(" · ")
+        : response.message || "Bulk action processed.",
+      details: skippedDetails,
+      hasSkips: Boolean(summary.skipped || summary.failed || noneUpdated),
+    };
   };
 
   const handleBulkApply = async () => {
     if (!bulkAction) return;
     setActionLoading(true);
+    setBulkResult(null);
     try {
       const isBulkComplete =
         bulkAction === "complete" ||
@@ -306,6 +379,7 @@ export function TasksPageContent() {
         return;
       }
 
+      setBulkResult(formatBulkResult(response));
       setSelectedIds([]);
       setBulkAction("");
       setBulkValue("");
@@ -403,6 +477,40 @@ export function TasksPageContent() {
         loading={actionLoading}
       />
 
+      {bulkResult ? (
+        <div
+          className={`mb-4 w-full max-w-lg overflow-hidden rounded-md border px-4 py-3 text-sm shadow-sm ${
+            bulkResult.hasSkips
+              ? "border-amber-200 bg-amber-50 text-amber-900"
+              : "border-green-200 bg-green-50 text-green-900"
+          }`}
+          role="status"
+        >
+          <div className="flex items-start gap-3">
+            <div className="min-w-0 flex-1 break-words">
+              <p className="font-medium leading-snug">{bulkResult.message}</p>
+              {bulkResult.details?.length ? (
+                <ul className="mt-2 space-y-1.5 text-xs leading-relaxed opacity-90">
+                  {bulkResult.details.map((line) => (
+                    <li key={line} className="break-words pl-3 -indent-3">
+                      • {line}
+                    </li>
+                  ))}
+                </ul>
+              ) : null}
+            </div>
+            <button
+              type="button"
+              onClick={() => setBulkResult(null)}
+              className="shrink-0 rounded p-1 opacity-70 transition-opacity hover:bg-black/5 hover:opacity-100"
+              aria-label="Dismiss"
+            >
+              <X className="h-4 w-4" />
+            </button>
+          </div>
+        </div>
+      ) : null}
+
       {error ? (
         <div className="mb-4 rounded-button border border-red-200 bg-red-50 px-3 py-2 text-sm text-danger">
           {error}
@@ -417,20 +525,38 @@ export function TasksPageContent() {
           description={tasksData.emptyDescription}
         />
       ) : (
-        <TasksTable
-          tasks={tasks}
-          selectedIds={selectedIds}
-          onToggleSelect={toggleSelect}
-          onToggleSelectAll={toggleSelectAll}
-          onEdit={openEdit}
-          onDelete={handleDelete}
-          onPause={handlePause}
-          onResume={handleResume}
-          onComplete={handleComplete}
-          actionLoading={actionLoading}
-          sort={currentSort}
-          onSort={handleSort}
-        />
+        <PaginatedTable items={tasks}>
+          {(pageTasks) => (
+            <TasksTable
+              tasks={pageTasks}
+              selectedIds={selectedIds}
+              onToggleSelect={toggleSelect}
+              onToggleSelectAll={() => {
+                const pageIds = pageTasks.map((t) => t.id);
+                const allSelected =
+                  pageIds.length > 0 &&
+                  pageIds.every((id) => selectedIds.includes(id));
+                if (allSelected) {
+                  setSelectedIds((prev) =>
+                    prev.filter((id) => !pageIds.includes(id))
+                  );
+                } else {
+                  setSelectedIds((prev) => [
+                    ...new Set([...prev, ...pageIds]),
+                  ]);
+                }
+              }}
+              onEdit={openEdit}
+              onDelete={handleDelete}
+              onPause={handlePause}
+              onResume={handleResume}
+              onComplete={handleComplete}
+              actionLoading={actionLoading}
+              sort={currentSort}
+              onSort={handleSort}
+            />
+          )}
+        </PaginatedTable>
       )}
 
       <Modal
@@ -453,6 +579,7 @@ export function TasksPageContent() {
         open={completionOpen}
         task={completionTask}
         elapsedHours={completionElapsed}
+        mode={completionMode}
         onConfirm={confirmCompletion}
         onCancel={() => {
           setCompletionOpen(false);

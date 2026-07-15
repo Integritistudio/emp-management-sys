@@ -24,8 +24,11 @@ Configure via environment:
 
 ## Task timer (PDF sections 11–12)
 - **Pause**: stops elapsed-time counting; deadline extension applied on resume.
-- **Complete (within deadline)**: actual_hours = elapsed work time (minus pauses).
-- **Complete (overdue)**: returns \`requiresConfirmation: true\`; admin answers Yes (manual hours) or No (elapsed time).
+- **Complete (within deadline)**: actual_hours = elapsed work time (minus pauses); completed_at = start + actual (office hours).
+- **Complete (overdue, Yes)**: supply manual actual_hours; completed_at = start + actual (office hours).
+- **Complete (overdue, No)**: actual_hours = elapsed; completed_at = start + actual (office hours).
+- Pause/on-hold freeze the deadline timer and are excluded from elapsed; they do **not** extend completed_at.
+- Overdue completion returns \`requiresConfirmation: true\`; Yes = manual hours, No = elapsed.
 
 ## Key calculations
 | Metric | Formula |

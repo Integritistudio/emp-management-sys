@@ -61,9 +61,8 @@ export function Sidebar({ adminEmail, onSignOut }) {
 
       <div className="border-t border-sidebar-border p-2.5">
         {adminEmail ? (
-          <p className="mb-3 px-2 text-caption leading-relaxed text-neutral">
-            {navigationData.signedIn.label}{" "}
-            <span className="font-semibold">{adminEmail}</span>
+          <p className="mb-2 whitespace-nowrap px-3 text-[11px] leading-snug tracking-tight text-neutral/90">
+            {adminEmail}
           </p>
         ) : null}
         <button

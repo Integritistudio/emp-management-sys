@@ -11,17 +11,20 @@ export function CompletionModal({
   open,
   task,
   elapsedHours,
+  mode = "single",
   onConfirm,
   onCancel,
   loading,
 }) {
   const [step, setStep] = useState("question");
   const [manualHours, setManualHours] = useState("");
+  const [hoursError, setHoursError] = useState("");
 
   useEffect(() => {
     if (open) {
       setStep("question");
       setManualHours("");
+      setHoursError("");
     }
   }, [open, task?.id]);
 
@@ -30,20 +33,30 @@ export function CompletionModal({
   const handleClose = () => {
     setStep("question");
     setManualHours("");
+    setHoursError("");
     onCancel();
   };
 
   const handleYes = () => {
     setStep("manual");
-    if (elapsedHours !== undefined && elapsedHours !== null) {
-      setManualHours(String(elapsedHours));
-    }
+    setHoursError("");
+    setManualHours("");
   };
 
   const handleConfirmManual = () => {
-    onConfirm({ useManual: true, actualHours: parseFloat(manualHours) });
+    if (manualHours === "" || manualHours === null) {
+      setHoursError("Actual hours is required");
+      return;
+    }
+    const hours = parseFloat(manualHours);
+    if (Number.isNaN(hours) || hours < 0) {
+      setHoursError("Please enter a valid number (0 or greater)");
+      return;
+    }
+    onConfirm({ useManual: true, actualHours: hours });
     setStep("question");
     setManualHours("");
+    setHoursError("");
   };
 
   const handleConfirmElapsed = () => {
@@ -52,12 +65,17 @@ export function CompletionModal({
     setManualHours("");
   };
 
+  const question =
+    mode === "bulk"
+      ? tasksData.completionModal.messageBulk
+      : tasksData.completionModal.message;
+
   return (
     <Modal open={open} onClose={handleClose} title={tasksData.completionModal.title} size="sm">
-      <p className="text-sm text-text-secondary">{tasksData.completionModal.message}</p>
+      <p className="text-sm text-text-secondary">{question}</p>
       <p className="mt-3 text-sm font-medium text-text-primary">{task.name}</p>
 
-      {elapsedHours !== undefined ? (
+      {elapsedHours !== undefined && elapsedHours !== null ? (
         <p className="mt-2 text-sm text-text-secondary">
           {tasksData.completionModal.elapsed}:{" "}
           <span className="font-semibold text-text-primary">
@@ -72,22 +90,26 @@ export function CompletionModal({
             id="manual_actual_hours"
             type="number"
             min="0"
-            step="0.1"
+            step="any"
             label={tasksData.completionModal.manualActualLabel}
             placeholder={tasksData.completionModal.manualActualPlaceholder}
             value={manualHours}
-            onChange={(e) => setManualHours(e.target.value)}
-            required
+            onChange={(e) => {
+              setManualHours(e.target.value);
+              setHoursError("");
+            }}
+            error={hoursError}
           />
+          {mode === "bulk" ? (
+            <p className="mt-1.5 text-xs text-text-muted">
+              {tasksData.completionModal.bulkManualHint}
+            </p>
+          ) : null}
           <div className="mt-6 flex justify-end gap-3">
             <Button variant="secondary" onClick={() => setStep("question")} disabled={loading}>
               {tasksData.completionModal.cancel}
             </Button>
-            <Button
-              onClick={handleConfirmManual}
-              loading={loading}
-              disabled={!manualHours || parseFloat(manualHours) < 0}
-            >
+            <Button onClick={handleConfirmManual} loading={loading}>
               {tasksData.completionModal.confirm}
             </Button>
           </div>

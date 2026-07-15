@@ -76,11 +76,19 @@ export const tasksData = {
     clear: "Clear Selection",
     selectAction: "Select action",
     selectValue: "Select value",
+    hint: "Bulk actions apply to open tasks only. Completed or cancelled tasks are skipped so historical performance is not rewritten.",
+    resultUpdated: (n) => `${n} updated`,
+    resultSkipped: (n) => `${n} skipped`,
+    resultFailed: (n) => `${n} failed`,
   },
   completionModal: {
     title: "Confirm Completion",
     message:
-      "This task is past its deadline. Was it actually completed within the estimated time?",
+      "Was this task actually completed within the estimated time?",
+    messageBulk:
+      "One or more selected tasks are past their deadline or estimated time. Were they actually completed within the estimated time?",
+    bulkManualHint:
+      "The actual time you enter will be applied to each selected task that still needs confirmation.",
     elapsed: "Elapsed time",
     hours: "hours",
     yes: "Yes — enter actual time",
@@ -90,6 +98,7 @@ export const tasksData = {
     confirm: "Complete Task",
     cancel: "Cancel",
   },
+  alertLegendTitle: "Attention flags",
   alerts: {
     paused: "Paused",
     on_hold: "On Hold",

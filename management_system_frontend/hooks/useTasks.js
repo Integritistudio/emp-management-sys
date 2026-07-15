@@ -69,8 +69,11 @@ export function useTasks(initialParams = {}) {
       await fetchTasks();
     },
     updateTask: async (id, data) => {
-      await tasksApi.update(id, data);
-      await fetchTasks();
+      const response = await tasksApi.update(id, data);
+      if (!response.requiresConfirmation) {
+        await fetchTasks();
+      }
+      return response;
     },
     deleteTask: async (id) => {
       await tasksApi.delete(id);

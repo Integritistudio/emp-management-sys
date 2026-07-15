@@ -10,8 +10,13 @@ const {
   holdTask,
   resumeTask,
   completeTask,
+  resolveCompletedAt,
   FROZEN_STATUSES,
 } = require("../services/taskTimerService");
+const {
+  evaluateBulkAction,
+  summarizeBulkResults,
+} = require("../services/bulkActionService");
 
 const mapTask = (row) => ({
   id: row.id,
@@ -244,11 +249,22 @@ const update = async (id, data) => {
         deadline = resumed.deadline;
       }
     } else if (data.status === "completed") {
+      // PDF §12 — do not auto-bypass confirmation (was wrongly using confirm: true)
+      const hasManualActual =
+        data.actual_hours !== undefined &&
+        data.actual_hours !== null &&
+        data.actual_hours !== "";
       const completion = completeTask(existing, {
-        actual_hours:
-          data.actual_hours !== undefined ? data.actual_hours : undefined,
-        confirm: true,
+        actual_hours: hasManualActual ? data.actual_hours : undefined,
+        confirm: data.confirm === true || hasManualActual,
       });
+      if (completion.requiresConfirmation) {
+        const error = new Error(completion.message);
+        error.requiresConfirmation = true;
+        error.elapsed_hours = completion.elapsed_hours;
+        error.task = existing;
+        throw error;
+      }
       nextStatus = completion.status;
       actualHours = completion.actual_hours;
       completedAt = completion.completed_at;
@@ -288,13 +304,38 @@ const update = async (id, data) => {
         new Date()
       );
     }
-    completedAt = new Date();
+    completedAt = resolveCompletedAt(
+      { start_time: startTime },
+      actualHours !== undefined && actualHours !== null
+        ? actualHours
+        : existing.actual_hours
+    );
     pausedAt = null;
   } else if (nextStatus === "cancelled" && data.status === undefined) {
     actualHours = data.actual_hours !== undefined ? data.actual_hours : null;
     completedAt = null;
   } else if (leavingCompleted) {
     completedAt = null;
+  }
+
+  // Keep completed_at aligned when actual/start change on an already-completed task
+  if (
+    nextStatus === "completed" &&
+    !leavingCompleted &&
+    data.completed_at === undefined &&
+    (data.actual_hours !== undefined || data.start_time !== undefined) &&
+    !(becomingCompleted && data.status === "completed")
+  ) {
+    const resolvedActual =
+      actualHours !== undefined && actualHours !== null
+        ? actualHours
+        : existing.actual_hours;
+    if (resolvedActual !== null && resolvedActual !== undefined) {
+      completedAt = resolveCompletedAt(
+        { start_time: startTime },
+        resolvedActual
+      );
+    }
   }
 
   if (data.paused_at !== undefined) {
@@ -428,7 +469,24 @@ const bulkUpdate = async (taskIds, action, value) => {
   for (const taskId of taskIds) {
     const task = await findById(taskId);
     if (!task) {
-      results.push({ id: taskId, success: false, message: "Task not found" });
+      results.push({
+        id: taskId,
+        success: false,
+        skipped: true,
+        message: "Task not found",
+      });
+      continue;
+    }
+
+    const gate = evaluateBulkAction(task, action, value);
+    if (!gate.allowed) {
+      results.push({
+        id: taskId,
+        name: task.name,
+        success: false,
+        skipped: true,
+        message: gate.message,
+      });
       continue;
     }
 
@@ -436,15 +494,30 @@ const bulkUpdate = async (taskIds, action, value) => {
       let updated;
 
       switch (action) {
-        case "assign":
+        case "assign": {
+          // Hard stop — never rewrite assignee on finished work via bulk
+          const status = String(task.status || "").trim().toLowerCase();
+          if (status === "completed" || status === "cancelled") {
+            results.push({
+              id: taskId,
+              name: task.name,
+              success: false,
+              skipped: true,
+              message:
+                "Skipped — completed/cancelled tasks cannot be reassigned in bulk.",
+            });
+            continue;
+          }
           updated = await update(taskId, { assigned_to: value || null });
           break;
+        }
         case "change_status": {
           if (value === "completed") {
             const completion = await complete(taskId, { confirm: false });
             if (completion.requiresConfirmation) {
               results.push({
                 id: taskId,
+                name: task.name,
                 success: false,
                 requiresConfirmation: true,
                 message: completion.message,
@@ -473,13 +546,25 @@ const bulkUpdate = async (taskIds, action, value) => {
           updated = await hold(taskId);
           break;
         case "complete": {
-          const completion = await complete(taskId, { confirm: value === true });
+          const confirmed =
+            value === true ||
+            (value && typeof value === "object" && value.confirm === true);
+          const manualHours =
+            value && typeof value === "object" && value.actual_hours !== undefined
+              ? value.actual_hours
+              : undefined;
+          const completion = await complete(taskId, {
+            confirm: confirmed,
+            actual_hours: manualHours,
+          });
           if (completion.requiresConfirmation) {
             results.push({
               id: taskId,
+              name: task.name,
               success: false,
               requiresConfirmation: true,
               message: completion.message,
+              elapsed_hours: completion.elapsed_hours,
             });
             continue;
           }
@@ -487,17 +572,37 @@ const bulkUpdate = async (taskIds, action, value) => {
           break;
         }
         default:
-          results.push({ id: taskId, success: false, message: "Invalid action" });
+          results.push({
+            id: taskId,
+            name: task.name,
+            success: false,
+            skipped: true,
+            message: "Invalid action",
+          });
           continue;
       }
 
-      results.push({ id: taskId, success: true, data: updated });
+      results.push({
+        id: taskId,
+        name: task.name,
+        success: true,
+        data: updated,
+      });
     } catch (error) {
-      results.push({ id: taskId, success: false, message: error.message });
+      results.push({
+        id: taskId,
+        name: task.name,
+        success: false,
+        skipped: false,
+        message: error.message,
+      });
     }
   }
 
-  return results;
+  return {
+    results,
+    summary: summarizeBulkResults(results),
+  };
 };
 
 module.exports = {

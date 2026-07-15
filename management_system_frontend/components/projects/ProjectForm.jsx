@@ -6,6 +6,7 @@ import { Input } from "@/components/ui/Input";
 import { Select } from "@/components/ui/Select";
 import { Button } from "@/components/ui/Button";
 import { ApiError } from "@/lib/api";
+import { hasErrors, required } from "@/lib/formValidation";
 
 const emptyForm = {
   name: "",
@@ -19,6 +20,7 @@ export function ProjectForm({ project, developers = [], onSubmit, onCancel }) {
   const [form, setForm] = useState(emptyForm);
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState("");
+  const [fieldErrors, setFieldErrors] = useState({});
 
   useEffect(() => {
     if (project) {
@@ -34,15 +36,34 @@ export function ProjectForm({ project, developers = [], onSubmit, onCancel }) {
     } else {
       setForm(emptyForm);
     }
+    setFieldErrors({});
+    setError("");
   }, [project]);
 
   const handleChange = (field) => (e) => {
+    setFieldErrors((prev) => {
+      if (!prev[field]) return prev;
+      const next = { ...prev };
+      delete next[field];
+      return next;
+    });
     setForm((prev) => ({ ...prev, [field]: e.target.value }));
+  };
+
+  const validate = () => {
+    const errors = {
+      name: required(form.name, "Project name is required"),
+      start_date: required(form.start_date, "Start date is required"),
+    };
+    setFieldErrors(errors);
+    return !hasErrors(errors);
   };
 
   const handleSubmit = async (e) => {
     e.preventDefault();
     setError("");
+    if (!validate()) return;
+
     setSubmitting(true);
     try {
       await onSubmit({
@@ -62,7 +83,7 @@ export function ProjectForm({ project, developers = [], onSubmit, onCancel }) {
   }));
 
   return (
-    <form onSubmit={handleSubmit} className="space-y-4">
+    <form onSubmit={handleSubmit} noValidate className="space-y-4">
       {error ? (
         <div className="rounded-button border border-red-200 bg-red-50 px-3 py-2 text-sm text-danger">
           {error}
@@ -75,7 +96,7 @@ export function ProjectForm({ project, developers = [], onSubmit, onCancel }) {
         placeholder={projectsData.form.namePlaceholder}
         value={form.name}
         onChange={handleChange("name")}
-        required
+        error={fieldErrors.name}
       />
       <Select
         id="lead_developer_id"
@@ -91,7 +112,7 @@ export function ProjectForm({ project, developers = [], onSubmit, onCancel }) {
         label={projectsData.form.startDateLabel}
         value={form.start_date}
         onChange={handleChange("start_date")}
-        required
+        error={fieldErrors.start_date}
       />
       <Select
         id="quality"

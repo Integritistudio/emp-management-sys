@@ -3,8 +3,8 @@ const { parseSort } = require("../utils/queryBuilder");
 const {
   efficiencyRate,
   projectVariance,
+  totalProjectTime,
 } = require("../services/calculationService");
-const { calculateElapsedHours } = require("../services/taskTimerService");
 
 const PROJECT_AGG_JOIN = `
   LEFT JOIN team_members ld ON p.lead_developer_id = ld.id
@@ -44,8 +44,10 @@ const mapProject = (row) => {
     on_hold_tasks: row.on_hold_tasks || 0,
     total_estimated_time: totalEstimated,
     total_actual_time: totalActual,
-    total_project_time: completedActual,
+    // PDF §21.5
+    total_project_time: totalProjectTime(completedActual),
     active_task_time: activeActual,
+    // PDF §21.2 / §21.4 — all linked tasks
     project_variance: projectVariance(totalActual, totalEstimated),
     project_efficiency_rate: efficiencyRate(totalEstimated, totalActual),
     created_at: row.created_at,
