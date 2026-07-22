@@ -23,7 +23,7 @@
 
 ## Purpose
 
-Next.js (App Router) admin dashboard for Integriti's internal employee management system. Connects to the Express API at `http://localhost:5000/api`.
+Next.js (App Router) dashboard for Integriti's internal employee management system. Supports **admin** and **team member** sessions against the Express API at `http://localhost:5000/api`.
 
 Specification: `public/assets/Integriti Employee Management System.pdf`
 
@@ -114,19 +114,35 @@ All dashboard routes are wrapped in `(dashboard)/layout.jsx` → `DashboardShell
 
 ## Layout & auth
 
+### Roles
+| Role | Nav | Access |
+|------|-----|--------|
+| `admin` | Dashboard, Projects, Team, Tasks, Reports | Full org data |
+| `member` | Dashboard, Tasks, Reports | Own stats, own tasks, own report only |
+
+Projects and Team routes are wrapped in `AdminOnly` (members redirect to `/dashboard`).
+
 ### `DashboardShell.jsx`
 - Fixed-height sidebar (`w-[220px]`), main content scrolls independently
-- Passes `adminEmail` to sidebar for "Signed in as" above Sign Out
+- Shows user email or member name; **Change Password** + Sign Out
+- `ChangePasswordModal` — current password + new password + confirm
 
-### `useAuth` hook
-- Checks `GET /auth/me` on load
-- Redirects unauthenticated users to `/login`
+### `AuthProvider` / `useAuth` / `useAuthContext`
+- Dashboard layout wraps pages in `AuthProvider` (`requireAuth`)
+- Checks `GET /auth/me` on load; exposes `user.role`, `isAdmin`, `isMember`
 - Login sets httpOnly cookie (handled by backend)
+- Both roles use the same login page
 
 ### `lib/api.js`
 - Central `request()` with `credentials: "include"`
 - `ApiError` class for user-facing error messages
 - Module-specific clients: `lib/tasks.js`, `lib/team.js`, `lib/projects.js`, etc.
+
+### Member UI behaviour
+- **Dashboard:** personal analytics cards only (no team table / matrix)
+- **Tasks:** only own tasks; assignee locked to self; project dropdown from `/projects/options`; no bulk actions
+- **Reports:** own report only (no project tab / developer picker)
+- **Team form (admin):** optional login password on create; set/reset password on edit; `has_login` badge on cards
 
 ---
 
@@ -264,6 +280,7 @@ Configured on the **backend** (5 PM–2 AM). Frontend displays the deadline retu
 
 | Date | Change |
 |------|--------|
+| 2026-07-22 | Member login UI, role-filtered nav, scoped dashboard/tasks/reports, change password, team login password fields |
 | 2026-07-07 | Fixed datetime-local timezone display |
 | 2026-07-07 | TaskForm: In Progress default with use_current_time |
 | 2026-07-07 | TaskForm: Deadline/End Time manual edit field |
@@ -273,4 +290,4 @@ Configured on the **backend** (5 PM–2 AM). Frontend displays the deadline retu
 
 ---
 
-*Last updated: 2026-07-07*
+*Last updated: 2026-07-22*

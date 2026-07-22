@@ -11,7 +11,7 @@ function serializeParams(params = {}) {
   });
 }
 
-export function useDashboard(initialParams = {}) {
+export function useDashboard(initialParams = {}, { memberMode = false } = {}) {
   const [stats, setStats] = useState(null);
   const [teamPerformance, setTeamPerformance] = useState([]);
   const [weekdayBreakdown, setWeekdayBreakdown] = useState(null);
@@ -34,19 +34,28 @@ export function useDashboard(initialParams = {}) {
         endDate: parsed.endDate || undefined,
       };
 
-      const [statsRes, teamRes, weekdayRes, matrixRes] = await Promise.all([
-        dashboardApi.getStats(query),
-        dashboardApi.getTeamPerformance(query),
-        dashboardApi.getWeekdayBreakdown(query),
-        dashboardApi.getMatrix(),
-      ]);
+      if (memberMode) {
+        const statsRes = await dashboardApi.getStats(query);
+        if (requestId !== requestIdRef.current) return;
+        setStats(statsRes.data);
+        setTeamPerformance([]);
+        setWeekdayBreakdown(null);
+        setMatrix(null);
+      } else {
+        const [statsRes, teamRes, weekdayRes, matrixRes] = await Promise.all([
+          dashboardApi.getStats(query),
+          dashboardApi.getTeamPerformance(query),
+          dashboardApi.getWeekdayBreakdown(query),
+          dashboardApi.getMatrix(),
+        ]);
 
-      if (requestId !== requestIdRef.current) return;
+        if (requestId !== requestIdRef.current) return;
 
-      setStats(statsRes.data);
-      setTeamPerformance(teamRes.data || []);
-      setWeekdayBreakdown(weekdayRes.data || null);
-      setMatrix(matrixRes.data);
+        setStats(statsRes.data);
+        setTeamPerformance(teamRes.data || []);
+        setWeekdayBreakdown(weekdayRes.data || null);
+        setMatrix(matrixRes.data);
+      }
     } catch (err) {
       if (requestId !== requestIdRef.current) return;
       setError(err.message || "Failed to load dashboard");
@@ -55,7 +64,7 @@ export function useDashboard(initialParams = {}) {
         setLoading(false);
       }
     }
-  }, [paramsKey]);
+  }, [paramsKey, memberMode]);
 
   useEffect(() => {
     fetchDashboard();

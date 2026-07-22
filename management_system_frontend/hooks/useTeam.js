@@ -11,15 +11,21 @@ function serializeParams(params = {}) {
   });
 }
 
-export function useTeam(initialParams = {}) {
+export function useTeam(initialParams = {}, { enabled = true } = {}) {
   const [members, setMembers] = useState([]);
   const [titleOptions, setTitleOptions] = useState([]);
-  const [loading, setLoading] = useState(true);
+  const [loading, setLoading] = useState(enabled);
   const [error, setError] = useState("");
   const requestIdRef = useRef(0);
   const paramsKey = serializeParams(initialParams);
 
   const fetchMembers = useCallback(async () => {
+    if (!enabled) {
+      setMembers([]);
+      setTitleOptions([]);
+      setLoading(false);
+      return;
+    }
     const requestId = ++requestIdRef.current;
     setError("");
     setLoading(true);
@@ -47,7 +53,7 @@ export function useTeam(initialParams = {}) {
         setLoading(false);
       }
     }
-  }, [paramsKey]);
+  }, [paramsKey, enabled]);
 
   useEffect(() => {
     fetchMembers();

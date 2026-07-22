@@ -49,6 +49,14 @@ export const teamData = {
     namePlaceholder: "Enter full name",
     emailLabel: "Email",
     emailPlaceholder: "developer@integriti.io",
+    passwordLabel: "Login Password (optional)",
+    setPasswordLabel: "Set Login Password",
+    resetPasswordLabel: "Reset Login Password",
+    passwordPlaceholder: "Min. 6 characters",
+    passwordHint:
+      "If set, the member can sign in with their email and this password.",
+    passwordHintReset:
+      "Leave blank to keep the current password. Enter a new value to reset it.",
     submit: "Save Member",
     cancel: "Cancel",
   },
@@ -57,6 +65,7 @@ export const teamData = {
     timeLogged: "Time Logged (hrs)",
     efficiency: "Efficiency",
     matrixRating: "Matrix Rating",
+    loginEnabled: "Login enabled",
   },
   searchPlaceholder: "Search by name, email, or title...",
   filters: {

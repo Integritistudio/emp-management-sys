@@ -71,6 +71,55 @@ const getStats = async (query = {}) => {
 };
 
 /**
+ * Member-scoped dashboard stats (own tasks only).
+ */
+const getMemberStats = async (memberId, query = {}) => {
+  const range = getDateRange(query);
+  const values = [range.startDate, range.endDate, memberId];
+  const clause = `AND t.created_at >= $1 AND t.created_at <= $2 AND t.assigned_to = $3`;
+
+  const [taskResult, timeResult] = await Promise.all([
+    pool.query(
+      `SELECT
+        COUNT(*)::int AS total_tasks,
+        COUNT(*) FILTER (WHERE status = 'in_progress')::int AS active_tasks,
+        COUNT(*) FILTER (WHERE status = 'completed')::int AS completed_tasks,
+        COUNT(*) FILTER (WHERE status = 'on_hold')::int AS on_hold_tasks,
+        COUNT(*) FILTER (WHERE status = 'paused')::int AS paused_tasks
+      FROM tasks t
+      WHERE 1=1 ${clause}`,
+      values
+    ),
+    pool.query(
+      `SELECT
+        COALESCE(SUM(actual_hours) FILTER (WHERE status = 'completed'), 0) AS total_time_logged,
+        COALESCE(SUM(estimated_hours) FILTER (WHERE status = 'completed'), 0) AS total_estimated
+      FROM tasks t
+      WHERE 1=1 ${clause}`,
+      values
+    ),
+  ]);
+
+  const row = taskResult.rows[0];
+  const time = timeResult.rows[0];
+  const totalEstimated = Number(time.total_estimated || 0);
+  const totalTimeLogged = Number(time.total_time_logged || 0);
+
+  return {
+    period: range.period,
+    startDate: range.startDate,
+    endDate: range.endDate,
+    totalTasks: row.total_tasks,
+    activeTasks: row.active_tasks,
+    completedTasks: row.completed_tasks,
+    onHoldTasks: row.on_hold_tasks,
+    pausedTasks: row.paused_tasks,
+    totalTimeLogged,
+    efficiencyRate: efficiencyRate(totalEstimated, totalTimeLogged),
+  };
+};
+
+/**
  * PDF §6.3–6.5 — Team Performance Table
  * Columns: name, assigned, completed, active, time logged, task-volume bar %.
  */
@@ -390,6 +439,7 @@ const getMatrix = async () => {
 
 module.exports = {
   getStats,
+  getMemberStats,
   getTeamPerformance,
   getWeekdayBreakdown,
   getMatrix,

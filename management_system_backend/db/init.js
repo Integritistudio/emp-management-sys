@@ -15,11 +15,14 @@ const initQueries = [
     title VARCHAR(255) NOT NULL,
     full_name VARCHAR(255) NOT NULL,
     email VARCHAR(255) UNIQUE NOT NULL,
+    password_hash VARCHAR(255),
     output_level VARCHAR(20) DEFAULT 'medium' CHECK (output_level IN ('low', 'medium', 'high')),
     quality_level VARCHAR(20) DEFAULT 'medium' CHECK (quality_level IN ('low', 'medium', 'high')),
     created_at TIMESTAMPTZ DEFAULT NOW(),
     updated_at TIMESTAMPTZ DEFAULT NOW()
   )`,
+
+  `ALTER TABLE team_members ADD COLUMN IF NOT EXISTS password_hash VARCHAR(255)`,
 
   `CREATE TABLE IF NOT EXISTS projects (
     id UUID PRIMARY KEY DEFAULT gen_random_uuid(),

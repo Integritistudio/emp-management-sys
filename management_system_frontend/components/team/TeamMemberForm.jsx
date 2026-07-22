@@ -11,6 +11,7 @@ const emptyForm = {
   title: "",
   full_name: "",
   email: "",
+  password: "",
 };
 
 export function TeamMemberForm({ member, onSubmit, onCancel }) {
@@ -25,6 +26,7 @@ export function TeamMemberForm({ member, onSubmit, onCancel }) {
         title: member.title || "",
         full_name: member.full_name || "",
         email: member.email || "",
+        password: "",
       });
     } else {
       setForm(emptyForm);
@@ -50,6 +52,10 @@ export function TeamMemberForm({ member, onSubmit, onCancel }) {
       email:
         required(form.email, "Email is required") ||
         (!isValidEmail(form.email) ? "Please enter a valid email address" : ""),
+      password:
+        form.password && form.password.length < 6
+          ? "Password must be at least 6 characters"
+          : "",
     };
     setFieldErrors(errors);
     return !hasErrors(errors);
@@ -62,7 +68,15 @@ export function TeamMemberForm({ member, onSubmit, onCancel }) {
 
     setSubmitting(true);
     try {
-      await onSubmit(form);
+      const payload = {
+        title: form.title,
+        full_name: form.full_name,
+        email: form.email,
+      };
+      if (form.password.trim()) {
+        payload.password = form.password.trim();
+      }
+      await onSubmit(payload);
     } catch (err) {
       setError(err instanceof ApiError ? err.message : "Failed to save team member");
     } finally {
@@ -103,6 +117,27 @@ export function TeamMemberForm({ member, onSubmit, onCancel }) {
         onChange={handleChange("email")}
         error={fieldErrors.email}
       />
+      <Input
+        id="password"
+        type="password"
+        label={
+          member
+            ? member.has_login
+              ? teamData.form.resetPasswordLabel
+              : teamData.form.setPasswordLabel
+            : teamData.form.passwordLabel
+        }
+        placeholder={teamData.form.passwordPlaceholder}
+        value={form.password}
+        onChange={handleChange("password")}
+        error={fieldErrors.password}
+        autoComplete="new-password"
+      />
+      <p className="text-xs text-text-muted">
+        {member?.has_login
+          ? teamData.form.passwordHintReset
+          : teamData.form.passwordHint}
+      </p>
 
       <div className="flex justify-end gap-3 pt-2">
         <Button type="button" variant="secondary" onClick={onCancel}>

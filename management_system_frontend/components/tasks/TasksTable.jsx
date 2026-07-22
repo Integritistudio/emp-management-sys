@@ -31,9 +31,10 @@ const STICKY_NAME_CELL = "sticky left-12 z-20";
 
 export function TasksTable({
   tasks,
-  selectedIds,
+  selectedIds = [],
   onToggleSelect,
   onToggleSelectAll,
+  hideSelection = false,
   onEdit,
   onDelete,
   onPause,
@@ -44,22 +45,28 @@ export function TasksTable({
   onSort,
 }) {
   const allSelected =
-    tasks.length > 0 && tasks.every((task) => selectedIds.includes(task.id));
+    !hideSelection &&
+    tasks.length > 0 &&
+    tasks.every((task) => selectedIds.includes(task.id));
 
   return (
     <Table>
       <TableHead>
         <TableRow>
-          <TableHeaderCell className={STICKY_SELECT_HEAD}>
-            <input
-              type="checkbox"
-              checked={allSelected}
-              onChange={onToggleSelectAll}
-              className="rounded border-border"
-              aria-label="Select all tasks"
-            />
-          </TableHeaderCell>
-          <TableHeaderCell className={STICKY_NAME_HEAD}>
+          {!hideSelection ? (
+            <TableHeaderCell className={STICKY_SELECT_HEAD}>
+              <input
+                type="checkbox"
+                checked={allSelected}
+                onChange={onToggleSelectAll}
+                className="rounded border-border"
+                aria-label="Select all tasks"
+              />
+            </TableHeaderCell>
+          ) : null}
+          <TableHeaderCell
+            className={hideSelection ? "sticky left-0 z-30 bg-parchment" : STICKY_NAME_HEAD}
+          >
             <SortableHeader
               label={tasksData.table.name}
               column="name"
@@ -126,20 +133,26 @@ export function TasksTable({
               clickable
               onClick={() => onEdit(task)}
             >
+              {!hideSelection ? (
+                <TableCell
+                  className={`${STICKY_SELECT_CELL} ${stickyBg}`}
+                  onClick={(e) => e.stopPropagation()}
+                  onKeyDown={(e) => e.stopPropagation()}
+                >
+                  <input
+                    type="checkbox"
+                    checked={selectedIds.includes(task.id)}
+                    onChange={() => onToggleSelect?.(task.id)}
+                    className="rounded border-border"
+                    aria-label={`Select ${task.name}`}
+                  />
+                </TableCell>
+              ) : null}
               <TableCell
-                className={`${STICKY_SELECT_CELL} ${stickyBg}`}
-                onClick={(e) => e.stopPropagation()}
-                onKeyDown={(e) => e.stopPropagation()}
+                className={`${
+                  hideSelection ? "sticky left-0 z-20" : STICKY_NAME_CELL
+                } ${stickyBg}`}
               >
-                <input
-                  type="checkbox"
-                  checked={selectedIds.includes(task.id)}
-                  onChange={() => onToggleSelect(task.id)}
-                  className="rounded border-border"
-                  aria-label={`Select ${task.name}`}
-                />
-              </TableCell>
-              <TableCell className={`${STICKY_NAME_CELL} ${stickyBg}`}>
                 <div className="min-w-[140px] font-medium text-text-primary">
                   {task.name}
                 </div>
@@ -147,13 +160,17 @@ export function TasksTable({
               </TableCell>
               <TableCell>
                 {task.project_id && task.project_name ? (
-                  <Link
-                    href={`/projects/${task.project_id}`}
-                    className="text-primary hover:underline"
-                    onClick={(e) => e.stopPropagation()}
-                  >
-                    {task.project_name}
-                  </Link>
+                  hideSelection ? (
+                    task.project_name
+                  ) : (
+                    <Link
+                      href={`/projects/${task.project_id}`}
+                      className="text-primary hover:underline"
+                      onClick={(e) => e.stopPropagation()}
+                    >
+                      {task.project_name}
+                    </Link>
+                  )
                 ) : (
                   "—"
                 )}

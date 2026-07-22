@@ -16,14 +16,19 @@ function serializeParams(params = {}) {
   });
 }
 
-export function useProjects(initialParams = {}) {
+export function useProjects(initialParams = {}, { enabled = true } = {}) {
   const [projects, setProjects] = useState([]);
-  const [loading, setLoading] = useState(true);
+  const [loading, setLoading] = useState(enabled);
   const [error, setError] = useState("");
   const requestIdRef = useRef(0);
   const paramsKey = serializeParams(initialParams);
 
   const fetchProjects = useCallback(async () => {
+    if (!enabled) {
+      setProjects([]);
+      setLoading(false);
+      return;
+    }
     const requestId = ++requestIdRef.current;
     setError("");
     setLoading(true);
@@ -54,7 +59,7 @@ export function useProjects(initialParams = {}) {
         setLoading(false);
       }
     }
-  }, [paramsKey]);
+  }, [paramsKey, enabled]);
 
   useEffect(() => {
     fetchProjects();

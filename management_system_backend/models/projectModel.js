@@ -197,9 +197,18 @@ const remove = async (id) => {
   return result.rows[0] || null;
 };
 
+/** Minimal id+name list for task forms (including member task create). */
+const findOptions = async () => {
+  const result = await pool.query(
+    `SELECT id, name FROM projects ORDER BY name ASC`
+  );
+  return result.rows;
+};
+
 module.exports = {
   findAll,
   findById,
+  findOptions,
   create,
   update,
   remove,

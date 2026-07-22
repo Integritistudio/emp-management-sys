@@ -42,6 +42,7 @@ const mapTeamMember = (row) => {
     title: row.title,
     full_name: row.full_name,
     email: row.email,
+    has_login: Boolean(row.password_hash),
     output_level: row.output_level,
     quality_level: row.quality_level,
     total_tasks_assigned: row.total_tasks || 0,
@@ -126,28 +127,66 @@ const findById = async (id) => {
   return result.rows[0] ? mapTeamMember(result.rows[0]) : null;
 };
 
-const create = async ({ title, full_name, email }) => {
+const findAuthByEmail = async (email) => {
   const result = await pool.query(
-    `INSERT INTO team_members (title, full_name, email)
-     VALUES ($1, $2, $3)
+    `SELECT id, email, full_name, password_hash
+     FROM team_members
+     WHERE email = $1`,
+    [email.toLowerCase().trim()]
+  );
+  return result.rows[0] || null;
+};
+
+const findAuthById = async (id) => {
+  const result = await pool.query(
+    `SELECT id, email, full_name, password_hash
+     FROM team_members
+     WHERE id = $1`,
+    [id]
+  );
+  return result.rows[0] || null;
+};
+
+const create = async ({ title, full_name, email, password_hash = null }) => {
+  const result = await pool.query(
+    `INSERT INTO team_members (title, full_name, email, password_hash)
+     VALUES ($1, $2, $3, $4)
      RETURNING *`,
-    [title, full_name, email.toLowerCase().trim()]
+    [title, full_name, email.toLowerCase().trim(), password_hash]
   );
   return findById(result.rows[0].id);
 };
 
-const update = async (id, { title, full_name, email }) => {
+const update = async (id, { title, full_name, email, password_hash }) => {
   const result = await pool.query(
     `UPDATE team_members
      SET title = COALESCE($2, title),
          full_name = COALESCE($3, full_name),
          email = COALESCE($4, email),
+         password_hash = COALESCE($5, password_hash),
          updated_at = NOW()
      WHERE id = $1
      RETURNING *`,
-    [id, title, full_name, email ? email.toLowerCase().trim() : null]
+    [
+      id,
+      title,
+      full_name,
+      email ? email.toLowerCase().trim() : null,
+      password_hash || null,
+    ]
   );
   return result.rows[0] ? findById(result.rows[0].id) : null;
+};
+
+const updatePassword = async (id, passwordHash) => {
+  const result = await pool.query(
+    `UPDATE team_members
+     SET password_hash = $2, updated_at = NOW()
+     WHERE id = $1
+     RETURNING id`,
+    [id, passwordHash]
+  );
+  return result.rows[0] || null;
 };
 
 const updateMatrixRating = async (id, { output_level, quality_level }) => {
@@ -249,8 +288,11 @@ module.exports = {
   findDistinctTitles,
   findById,
   findDetailById,
+  findAuthByEmail,
+  findAuthById,
   create,
   update,
+  updatePassword,
   updateMatrixRating,
   remove,
 };

@@ -2,6 +2,7 @@ const express = require("express");
 const { body, param } = require("express-validator");
 const projectController = require("../controllers/projectController");
 const validate = require("../middleware/validateMiddleware");
+const { requireAdmin } = require("../middleware/authMiddleware");
 
 const router = express.Router();
 
@@ -17,88 +18,41 @@ const projectValidation = [
 
 /**
  * @swagger
- * /projects:
+ * /projects/options:
  *   get:
- *     summary: List projects
+ *     summary: Minimal project list (id, name) for task forms
  *     tags: [Projects]
  *     security: [{ cookieAuth: [] }]
- *     parameters:
- *       - in: query
- *         name: search
- *         schema: { type: string }
- *       - in: query
- *         name: sort
- *         schema: { type: string }
- *       - in: query
- *         name: status
- *         schema: { type: string }
- *       - in: query
- *         name: quality
- *         schema: { type: string }
- *       - in: query
- *         name: leadDeveloperId
- *         schema: { type: string, format: uuid }
- *       - in: query
- *         name: startDate
- *         schema: { type: string, format: date }
- *       - in: query
- *         name: endDate
- *         schema: { type: string, format: date }
+ *     responses:
+ *       200:
+ *         description: Project options
+ */
+router.get("/options", projectController.getOptions);
+
+/**
+ * @swagger
+ * /projects:
+ *   get:
+ *     summary: List projects (admin only)
+ *     tags: [Projects]
+ *     security: [{ cookieAuth: [] }]
  *     responses:
  *       200:
  *         description: Projects list
  *   post:
- *     summary: Create project
+ *     summary: Create project (admin only)
  *     tags: [Projects]
  *     security: [{ cookieAuth: [] }]
  *     responses:
  *       201:
  *         description: Project created
  */
-router.get("/", projectController.getAll);
-router.get("/:id", param("id").isUUID(), validate, projectController.getById);
-router.post("/", projectValidation, validate, projectController.create);
-/**
- * @swagger
- * /projects/{id}:
- *   get:
- *     summary: Get project with tasks
- *     tags: [Projects]
- *     security: [{ cookieAuth: [] }]
- *     parameters:
- *       - in: path
- *         name: id
- *         required: true
- *         schema: { type: string, format: uuid }
- *     responses:
- *       200:
- *         description: Project detail with task sub-table
- *   put:
- *     summary: Update project
- *     tags: [Projects]
- *     security: [{ cookieAuth: [] }]
- *     parameters:
- *       - in: path
- *         name: id
- *         required: true
- *         schema: { type: string, format: uuid }
- *     responses:
- *       200:
- *         description: Project updated
- *   delete:
- *     summary: Delete project
- *     tags: [Projects]
- *     security: [{ cookieAuth: [] }]
- *     parameters:
- *       - in: path
- *         name: id
- *         required: true
- *         schema: { type: string, format: uuid }
- *     responses:
- *       200:
- *         description: Project deleted
- */
-router.put(  "/:id",
+router.get("/", requireAdmin, projectController.getAll);
+router.get("/:id", requireAdmin, param("id").isUUID(), validate, projectController.getById);
+router.post("/", requireAdmin, projectValidation, validate, projectController.create);
+router.put(
+  "/:id",
+  requireAdmin,
   param("id").isUUID(),
   body("name").optional().trim().notEmpty(),
   body("start_date").optional().isISO8601(),
@@ -110,6 +64,12 @@ router.put(  "/:id",
   validate,
   projectController.update
 );
-router.delete("/:id", param("id").isUUID(), validate, projectController.remove);
+router.delete(
+  "/:id",
+  requireAdmin,
+  param("id").isUUID(),
+  validate,
+  projectController.remove
+);
 
 module.exports = router;

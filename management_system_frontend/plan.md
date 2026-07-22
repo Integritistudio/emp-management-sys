@@ -12,10 +12,10 @@ The PDF defines **23 sections**. Every item below maps directly to implementatio
 
 | PDF Section | What We Build |
 |---|---|
-| 1–2 | Single-admin internal web app (no sign-up, no multi-role RBAC) |
-| 3 | Login (pre-shared credentials), Sign Out in sidebar |
+| 1–2 | Internal web app with **admin** and **team member** logins (no public sign-up). Members are scoped to own data; admins retain full access |
+| 3 | Login (pre-shared credentials), Sign Out + Change Password in sidebar |
 | 4 | Integriti branding + light SaaS UI |
-| 5 | Sidebar: Dashboard, Projects, Team, Task Management, Reports, Sign Out |
+| 5 | Sidebar: role-filtered links (admin: all; member: Dashboard, Tasks, Reports) |
 | 6 | Dashboard analytics cards, date filters, team performance table, Mon–Fri breakdown |
 | 7 | 3×3 Team Performance Matrix (output × quality), manual quality rating v1 |
 | 8 | Projects sheet table, CRUD, detail view, task sub-table, auto variance/efficiency |

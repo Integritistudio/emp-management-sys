@@ -31,9 +31,19 @@ const createAdmin = async (email, passwordHash) => {
   return result.rows[0];
 };
 
+const updatePassword = async (id, passwordHash) => {
+  const result = await pool.query(
+    `UPDATE admins SET password_hash = $2 WHERE id = $1
+     RETURNING id, email, created_at`,
+    [id, passwordHash]
+  );
+  return result.rows[0] || null;
+};
+
 module.exports = {
   findByEmail,
   findById,
   countAdmins,
   createAdmin,
+  updatePassword,
 };

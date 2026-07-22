@@ -11,12 +11,20 @@ Integriti Employee Management System — Next.js frontend.
 
 ## Features
 
-- **Login** — PostgreSQL admin auth with JWT cookie
-- **Dashboard** — analytics cards, team performance, weekday breakdown, 3×3 matrix
-- **Projects** — full CRUD, filters, detail page with task sub-table
-- **Team** — card grid, add/edit members, live stats
-- **Tasks** — CRUD, timer pause/resume/complete, bulk actions, visual alerts
-- **Reports** — team & project tabs, 6 Recharts chart types, PDF export
+- **Login** — Admin or team member (email + password, JWT cookie)
+- **Change Password** — Sidebar action; requires current password
+- **Dashboard** — Admin: org analytics, team performance, matrix. Member: personal stats only
+- **Projects** — Admin only: full CRUD, filters, detail page with task sub-table
+- **Team** — Admin only: card grid, add/edit members, set/reset login password (`has_login` badge)
+- **Tasks** — Admin: all tasks + bulk. Member: own tasks only; can add tasks assigned to self
+- **Reports** — Admin: team & project tabs. Member: own report only. PDF export
+
+## Member access (quick guide)
+
+1. Admin creates/edits a team member and sets a login password.
+2. Member signs in with that email and password.
+3. Member sees Dashboard, Task Management, and Reports only.
+4. Member can change their password from the sidebar.
 
 ## Design
 
@@ -37,6 +45,7 @@ lib/           — API client and utilities
 
 ## Reports
 
-- Team Reports and Project Reports tabs
-- Filters: period, developer/project, status, custom date range
+- Team Reports and Project Reports tabs (admin)
+- Members: personal report view
+- Filters: period, developer/project (admin), status, custom date range
 - Export branded PDF via Export PDF button

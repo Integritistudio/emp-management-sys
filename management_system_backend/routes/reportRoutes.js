@@ -39,6 +39,16 @@ router.get("/team", reportController.getTeamReports);
 
 /**
  * @swagger
+ * /reports/me:
+ *   get:
+ *     summary: Current member's own report
+ *     tags: [Reports]
+ *     security: [{ cookieAuth: [] }]
+ */
+router.get("/me", reportController.getMyReport);
+
+/**
+ * @swagger
  * /reports/team/{id}:
  *   get:
  *     summary: Single team member report

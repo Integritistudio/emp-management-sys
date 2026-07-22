@@ -9,6 +9,7 @@ import { PROJECT_STATUS_OPTIONS } from "@/data/projects";
 import { useReports } from "@/hooks/useReports";
 import { useTeam } from "@/hooks/useTeam";
 import { useProjects } from "@/hooks/useProjects";
+import { useAuthContext } from "@/hooks/useAuth";
 import { Button } from "@/components/ui/Button";
 import { FilterBar } from "@/components/ui/FilterBar";
 import { ReportSummary } from "./ReportSummary";
@@ -25,72 +26,109 @@ import { reportsApi } from "@/lib/reports";
 export function ReportsPageContent() {
   const router = useRouter();
   const searchParams = useSearchParams();
-  const [activeTab, setActiveTab] = useState(searchParams.get("tab") || "team");
+  const { isMember, user } = useAuthContext();
+  const [activeTab, setActiveTab] = useState(
+    isMember ? "team" : searchParams.get("tab") || "team"
+  );
   const [period, setPeriod] = useState(searchParams.get("period") || "week");
   const [startDate, setStartDate] = useState(searchParams.get("startDate") || "");
   const [endDate, setEndDate] = useState(searchParams.get("endDate") || "");
   const [developerId, setDeveloperId] = useState(
-    searchParams.get("developerId") || ""
+    isMember ? user?.memberId || user?.id || "" : searchParams.get("developerId") || ""
   );
   const [projectId, setProjectId] = useState(searchParams.get("projectId") || "");
   const [status, setStatus] = useState(searchParams.get("status") || "");
   const [exportOpen, setExportOpen] = useState(false);
 
-  const { members: developers } = useTeam();
-  const { projects } = useProjects();
+  useEffect(() => {
+    if (isMember && user) {
+      setActiveTab("team");
+      setDeveloperId(user.memberId || user.id);
+      setProjectId("");
+    }
+  }, [isMember, user]);
+
+  const { members: developers } = useTeam({}, { enabled: !isMember });
+  const { projects } = useProjects({}, { enabled: !isMember });
 
   const params = useMemo(
     () => ({
       period: period === "custom" ? "custom" : period,
       startDate: period === "custom" ? startDate || undefined : undefined,
       endDate: period === "custom" ? endDate || undefined : undefined,
-      developerId: activeTab === "team" ? developerId || undefined : undefined,
+      developerId:
+        activeTab === "team"
+          ? isMember
+            ? user?.memberId || user?.id || undefined
+            : developerId || undefined
+          : undefined,
       projectId: activeTab === "project" ? projectId || undefined : undefined,
       status: status || undefined,
     }),
-    [period, startDate, endDate, developerId, projectId, status, activeTab]
+    [
+      period,
+      startDate,
+      endDate,
+      developerId,
+      projectId,
+      status,
+      activeTab,
+      isMember,
+      user,
+    ]
   );
 
   const { data, loading, error } = useReports(activeTab, params);
 
   const syncUrl = useCallback(() => {
     const query = new URLSearchParams();
-    query.set("tab", activeTab);
+    if (!isMember) query.set("tab", activeTab);
     if (period) query.set("period", period);
     if (period === "custom" && startDate) query.set("startDate", startDate);
     if (period === "custom" && endDate) query.set("endDate", endDate);
-    if (developerId) query.set("developerId", developerId);
-    if (projectId) query.set("projectId", projectId);
+    if (!isMember && developerId) query.set("developerId", developerId);
+    if (!isMember && projectId) query.set("projectId", projectId);
     if (status) query.set("status", status);
     router.replace(`/reports?${query.toString()}`);
-  }, [activeTab, period, startDate, endDate, developerId, projectId, status, router]);
+  }, [
+    activeTab,
+    period,
+    startDate,
+    endDate,
+    developerId,
+    projectId,
+    status,
+    router,
+    isMember,
+  ]);
 
   useEffect(() => {
     syncUrl();
   }, [syncUrl]);
 
   const hasActiveFilters = Boolean(
-    developerId ||
-      projectId ||
+    (!isMember && (developerId || projectId)) ||
       status ||
       (period === "custom" && (startDate || endDate))
   );
 
   const clearFilters = () => {
-    setDeveloperId("");
-    setProjectId("");
+    if (!isMember) {
+      setDeveloperId("");
+      setProjectId("");
+    }
     setStatus("");
     setStartDate("");
     setEndDate("");
     setPeriod("week");
   };
 
-  const developerOptions = developers.map((d) => ({
+  const developerOptions = (developers || []).map((d) => ({
     value: d.id,
     label: d.full_name,
   }));
 
-  const projectOptions = projects.map((p) => ({
+  const projectOptions = (projects || []).map((p) => ({
     value: p.id,
     label: p.name,
   }));
@@ -99,31 +137,38 @@ export function ReportsPageContent() {
     activeTab === "project" ? PROJECT_STATUS_OPTIONS : TASK_STATUS_OPTIONS;
 
   const handleExport = async (exportParams) => {
-    // PDF §16 — export uses Start/End from modal; keep entity filters from page
     const body = {
       period: "custom",
       startDate: exportParams.startDate,
       endDate: exportParams.endDate,
       status: params.status,
-      developerId: activeTab === "team" ? developerId || undefined : undefined,
-      projectId: activeTab === "project" ? projectId || undefined : undefined,
+      developerId: isMember
+        ? user?.memberId || user?.id
+        : activeTab === "team"
+          ? developerId || undefined
+          : undefined,
+      projectId: !isMember && activeTab === "project" ? projectId || undefined : undefined,
     };
-    if (activeTab === "team") {
+    if (isMember || activeTab === "team") {
       await reportsApi.exportTeamPdf(body);
     } else {
       await reportsApi.exportProjectPdf(body);
     }
   };
 
-  const showTeamDetail = Boolean(developerId);
-  const showProjectDetail = Boolean(projectId);
+  const showTeamDetail = Boolean(developerId) || isMember;
+  const showProjectDetail = Boolean(projectId) && !isMember;
 
   return (
     <div>
       <div className="mb-6 flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
         <div>
           <h1 className="heading-page">{reportsData.pageTitle}</h1>
-          <p className="text-subtitle">{reportsData.subtitle}</p>
+          <p className="text-subtitle">
+            {isMember
+              ? "Your personal performance report"
+              : reportsData.subtitle}
+          </p>
         </div>
         <Button onClick={() => setExportOpen(true)}>
           <Download className="h-4 w-4" />
@@ -131,22 +176,24 @@ export function ReportsPageContent() {
         </Button>
       </div>
 
-      <div className="mb-6 flex gap-2">
-        {["team", "project"].map((tab) => (
-          <Button
-            key={tab}
-            variant={activeTab === tab ? "primary" : "secondary"}
-            onClick={() => {
-              setActiveTab(tab);
-              setDeveloperId("");
-              setProjectId("");
-              setStatus("");
-            }}
-          >
-            {tab === "team" ? reportsData.tabs.team : reportsData.tabs.project}
-          </Button>
-        ))}
-      </div>
+      {!isMember ? (
+        <div className="mb-6 flex gap-2">
+          {["team", "project"].map((tab) => (
+            <Button
+              key={tab}
+              variant={activeTab === tab ? "primary" : "secondary"}
+              onClick={() => {
+                setActiveTab(tab);
+                setDeveloperId("");
+                setProjectId("");
+                setStatus("");
+              }}
+            >
+              {tab === "team" ? reportsData.tabs.team : reportsData.tabs.project}
+            </Button>
+          ))}
+        </div>
+      ) : null}
 
       <div className="mb-6 space-y-4">
         <div className="flex flex-wrap items-end gap-2">
@@ -163,23 +210,27 @@ export function ReportsPageContent() {
 
         <FilterBar
           filters={[
-            activeTab === "team"
-              ? {
-                  key: "developerId",
-                  label: reportsData.filters.developer,
-                  value: developerId,
-                  onChange: setDeveloperId,
-                  options: developerOptions,
-                  placeholder: reportsData.filters.allDevelopers,
-                }
-              : {
-                  key: "projectId",
-                  label: reportsData.filters.project,
-                  value: projectId,
-                  onChange: setProjectId,
-                  options: projectOptions,
-                  placeholder: reportsData.filters.allProjects,
-                },
+            ...(!isMember
+              ? [
+                  activeTab === "team"
+                    ? {
+                        key: "developerId",
+                        label: reportsData.filters.developer,
+                        value: developerId,
+                        onChange: setDeveloperId,
+                        options: developerOptions,
+                        placeholder: reportsData.filters.allDevelopers,
+                      }
+                    : {
+                        key: "projectId",
+                        label: reportsData.filters.project,
+                        value: projectId,
+                        onChange: setProjectId,
+                        options: projectOptions,
+                        placeholder: reportsData.filters.allProjects,
+                      },
+                ]
+              : []),
             {
               key: "status",
               label: reportsData.filters.status,
@@ -221,7 +272,7 @@ export function ReportsPageContent() {
         }
         selectedName={
           showTeamDetail
-            ? data?.member?.full_name || ""
+            ? data?.member?.full_name || user?.full_name || ""
             : showProjectDetail
               ? data?.project?.name || ""
               : ""
@@ -272,7 +323,7 @@ export function ReportsPageContent() {
         open={exportOpen}
         onClose={() => setExportOpen(false)}
         onExport={handleExport}
-        type={activeTab}
+        type={isMember ? "team" : activeTab}
       />
     </div>
   );

@@ -9,8 +9,9 @@ import {
   ListTodo,
   BarChart3,
   LogOut,
+  KeyRound,
 } from "lucide-react";
-import { navigationData } from "@/data/navigation";
+import { getNavLinksForRole, navigationData } from "@/data/navigation";
 
 const iconMap = {
   LayoutDashboard,
@@ -19,10 +20,15 @@ const iconMap = {
   ListTodo,
   BarChart3,
   LogOut,
+  KeyRound,
 };
 
-export function Sidebar({ adminEmail, onSignOut }) {
+export function Sidebar({ user, onSignOut, onChangePassword }) {
   const pathname = usePathname();
+  const role = user?.role || "admin";
+  const links = getNavLinksForRole(role);
+  const displayName =
+    user?.role === "member" && user?.full_name ? user.full_name : user?.email;
 
   return (
     <aside className="flex h-full w-[220px] shrink-0 flex-col border-r border-sidebar-border bg-sidebar text-neutral">
@@ -38,9 +44,10 @@ export function Sidebar({ adminEmail, onSignOut }) {
       </div>
 
       <nav className="flex-1 space-y-1 px-2.5 py-4">
-        {navigationData.links.map((link) => {
+        {links.map((link) => {
           const Icon = iconMap[link.icon];
-          const isActive = pathname === link.href;
+          const isActive =
+            pathname === link.href || pathname.startsWith(`${link.href}/`);
 
           return (
             <Link
@@ -60,11 +67,19 @@ export function Sidebar({ adminEmail, onSignOut }) {
       </nav>
 
       <div className="border-t border-sidebar-border p-2.5">
-        {adminEmail ? (
+        {displayName ? (
           <p className="mb-2 whitespace-nowrap px-3 text-[11px] leading-snug tracking-tight text-neutral/90">
-            {adminEmail}
+            {displayName}
           </p>
         ) : null}
+        <button
+          type="button"
+          onClick={onChangePassword}
+          className="mb-1 flex w-full items-center gap-2.5 rounded-md px-3 py-2.5 text-caption text-neutral transition-colors hover:bg-sidebar-active/60 active:scale-95"
+        >
+          <KeyRound className="h-4 w-4 shrink-0" />
+          {navigationData.changePassword.label}
+        </button>
         <button
           type="button"
           onClick={onSignOut}

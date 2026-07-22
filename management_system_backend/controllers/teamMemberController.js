@@ -1,4 +1,14 @@
+const bcrypt = require("bcryptjs");
 const teamMemberModel = require("../models/teamMemberModel");
+
+const BCRYPT_ROUNDS = 12;
+
+const hashPasswordIfProvided = async (password) => {
+  if (!password || typeof password !== "string" || !password.trim()) {
+    return null;
+  }
+  return bcrypt.hash(password.trim(), BCRYPT_ROUNDS);
+};
 
 const getAll = async (req, res, next) => {
   try {
@@ -40,7 +50,14 @@ const getById = async (req, res, next) => {
 
 const create = async (req, res, next) => {
   try {
-    const member = await teamMemberModel.create(req.body);
+    const { password, ...rest } = req.body;
+    if (password && password.length < 6) {
+      return res
+        .status(400)
+        .json({ message: "Password must be at least 6 characters" });
+    }
+    const password_hash = await hashPasswordIfProvided(password);
+    const member = await teamMemberModel.create({ ...rest, password_hash });
     res.status(201).json({ message: "Team member created", data: member });
   } catch (error) {
     if (error.code === "23505") {
@@ -52,7 +69,17 @@ const create = async (req, res, next) => {
 
 const update = async (req, res, next) => {
   try {
-    const member = await teamMemberModel.update(req.params.id, req.body);
+    const { password, ...rest } = req.body;
+    if (password && password.length < 6) {
+      return res
+        .status(400)
+        .json({ message: "Password must be at least 6 characters" });
+    }
+    const password_hash = await hashPasswordIfProvided(password);
+    const member = await teamMemberModel.update(req.params.id, {
+      ...rest,
+      ...(password_hash ? { password_hash } : {}),
+    });
     if (!member) {
       return res.status(404).json({ message: "Team member not found" });
     }

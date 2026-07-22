@@ -1,6 +1,7 @@
 export const dashboardData = {
   pageTitle: "Dashboard",
   subtitle: "Overview of tasks, projects, team engagement, and performance",
+  memberSubtitle: "Your personal task stats for the selected period",
   welcome: "Welcome back",
   filters: {
     week: "This Week",
@@ -46,6 +47,44 @@ export const dashboardData = {
       key: "engagedEmployees",
       label: "Engaged Employees",
       hint: "Developers working in progress or paused",
+      accent: "rose",
+    },
+  ],
+  memberAnalyticsCards: [
+    {
+      key: "totalTasks",
+      label: "My Tasks",
+      hint: "Your tasks created in the selected period",
+      accent: "teal",
+    },
+    {
+      key: "completedTasks",
+      label: "Completed",
+      hint: "Your completed tasks in this period",
+      accent: "green",
+    },
+    {
+      key: "activeTasks",
+      label: "In Progress",
+      hint: "Your active tasks right now",
+      accent: "blue",
+    },
+    {
+      key: "onHoldTasks",
+      label: "On Hold",
+      hint: "Your on-hold tasks in this period",
+      accent: "amber",
+    },
+    {
+      key: "totalTimeLogged",
+      label: "Time Logged (hrs)",
+      hint: "Hours logged on completed tasks",
+      accent: "violet",
+    },
+    {
+      key: "efficiencyRate",
+      label: "Efficiency %",
+      hint: "Estimated vs actual on completed work",
       accent: "rose",
     },
   ],

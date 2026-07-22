@@ -39,7 +39,7 @@ app.use(
   })
 );
 
-const allowedOrigins = (process.env.CLIENT_URL || "http://localhost:3000")
+const allowedOrigins = (process.env.CLIENT_URL || "http://localhost:5000")
   .split(",")
   .map((origin) => origin.trim())
   .filter(Boolean);
@@ -122,7 +122,17 @@ async function startServer() {
       process.exit(1);
     });
   } catch (error) {
-    console.error("[STARTUP] Failed to start server:", error.message);
+    const detail =
+      error.message ||
+      error.code ||
+      (Array.isArray(error.errors) && error.errors.map((e) => e.message).join("; ")) ||
+      String(error);
+    console.error("[STARTUP] Failed to start server:", detail);
+    if (error.code === "ECONNREFUSED") {
+      console.error(
+        `[STARTUP] Cannot reach PostgreSQL at ${process.env.DB_HOST || "localhost"}:${process.env.DB_PORT || 5432}. Start Postgres or fix DB_HOST/DB_PORT in .env.`
+      );
+    }
     process.exit(1);
   }
 }

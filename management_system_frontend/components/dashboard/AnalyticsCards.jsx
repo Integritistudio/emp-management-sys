@@ -4,6 +4,8 @@ import {
   Briefcase,
   CheckCircle2,
   ClipboardList,
+  Gauge,
+  Clock3,
   PauseCircle,
   PlayCircle,
   Users,
@@ -19,6 +21,8 @@ const ICONS = {
   onHoldTasks: PauseCircle,
   activeProjects: Briefcase,
   engagedEmployees: Users,
+  totalTimeLogged: Clock3,
+  efficiencyRate: Gauge,
 };
 
 const ACCENTS = {
@@ -48,11 +52,28 @@ const ACCENTS = {
   },
 };
 
-export function AnalyticsCards({ stats, loading }) {
+function formatCardValue(key, value) {
+  if (value == null) return 0;
+  if (key === "totalTimeLogged") {
+    const n = Number(value);
+    return Number.isFinite(n) ? n.toFixed(1) : "0.0";
+  }
+  if (key === "efficiencyRate") {
+    const n = Number(value);
+    return Number.isFinite(n) ? Math.round(n) : 0;
+  }
+  return value;
+}
+
+export function AnalyticsCards({ stats, loading, memberMode = false }) {
+  const cards = memberMode
+    ? dashboardData.memberAnalyticsCards
+    : dashboardData.analyticsCards;
+
   if (loading) {
     return (
       <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-3 2xl:grid-cols-6">
-        {Array.from({ length: 6 }).map((_, i) => (
+        {Array.from({ length: cards.length }).map((_, i) => (
           <Skeleton key={i} className="h-32 rounded-card" />
         ))}
       </div>
@@ -61,10 +82,10 @@ export function AnalyticsCards({ stats, loading }) {
 
   return (
     <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-3 2xl:grid-cols-6">
-      {dashboardData.analyticsCards.map((card) => {
+      {cards.map((card) => {
         const Icon = ICONS[card.key] || ClipboardList;
         const accent = ACCENTS[card.accent] || ACCENTS.teal;
-        const value = stats?.[card.key] ?? 0;
+        const value = formatCardValue(card.key, stats?.[card.key] ?? 0);
 
         return (
           <Card

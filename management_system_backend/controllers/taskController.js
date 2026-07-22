@@ -1,8 +1,23 @@
 const taskModel = require("../models/taskModel");
+const { isMember, memberId } = require("../middleware/authMiddleware");
+
+const assertOwnTask = async (req, res) => {
+  if (!isMember(req)) return true;
+  const task = await taskModel.findById(req.params.id);
+  if (!task) {
+    res.status(404).json({ message: "Task not found" });
+    return false;
+  }
+  if (task.assigned_to !== memberId(req)) {
+    res.status(403).json({ message: "You can only access your own tasks" });
+    return false;
+  }
+  return true;
+};
 
 const getAll = async (req, res, next) => {
   try {
-    const tasks = await taskModel.findAll({
+    const filters = {
       search: req.query.search,
       sort: req.query.sort,
       projectId: req.query.projectId,
@@ -12,7 +27,13 @@ const getAll = async (req, res, next) => {
       priority: req.query.priority,
       startDate: req.query.startDate,
       endDate: req.query.endDate,
-    });
+    };
+
+    if (isMember(req)) {
+      filters.developerId = memberId(req);
+    }
+
+    const tasks = await taskModel.findAll(filters);
     res.json({ data: tasks, count: tasks.length });
   } catch (error) {
     next(error);
@@ -21,6 +42,8 @@ const getAll = async (req, res, next) => {
 
 const getById = async (req, res, next) => {
   try {
+    if (!(await assertOwnTask(req, res))) return;
+
     const task = await taskModel.findById(req.params.id);
     if (!task) {
       return res.status(404).json({ message: "Task not found" });
@@ -33,7 +56,11 @@ const getById = async (req, res, next) => {
 
 const create = async (req, res, next) => {
   try {
-    const task = await taskModel.create(req.body);
+    const payload = { ...req.body };
+    if (isMember(req)) {
+      payload.assigned_to = memberId(req);
+    }
+    const task = await taskModel.create(payload);
     res.status(201).json({ message: "Task created", data: task });
   } catch (error) {
     next(error);
@@ -42,7 +69,15 @@ const create = async (req, res, next) => {
 
 const update = async (req, res, next) => {
   try {
-    const task = await taskModel.update(req.params.id, req.body);
+    if (!(await assertOwnTask(req, res))) return;
+
+    const payload = { ...req.body };
+    if (isMember(req)) {
+      // Members cannot reassign tasks to others
+      payload.assigned_to = memberId(req);
+    }
+
+    const task = await taskModel.update(req.params.id, payload);
     if (!task) {
       return res.status(404).json({ message: "Task not found" });
     }
@@ -62,6 +97,8 @@ const update = async (req, res, next) => {
 
 const remove = async (req, res, next) => {
   try {
+    if (!(await assertOwnTask(req, res))) return;
+
     const task = await taskModel.remove(req.params.id);
     if (!task) {
       return res.status(404).json({ message: "Task not found" });
@@ -74,6 +111,8 @@ const remove = async (req, res, next) => {
 
 const pause = async (req, res, next) => {
   try {
+    if (!(await assertOwnTask(req, res))) return;
+
     const task = await taskModel.pause(req.params.id);
     if (!task) {
       return res.status(404).json({ message: "Task not found" });
@@ -89,6 +128,8 @@ const pause = async (req, res, next) => {
 
 const resume = async (req, res, next) => {
   try {
+    if (!(await assertOwnTask(req, res))) return;
+
     const task = await taskModel.resume(req.params.id);
     if (!task) {
       return res.status(404).json({ message: "Task not found" });
@@ -107,6 +148,8 @@ const resume = async (req, res, next) => {
 
 const complete = async (req, res, next) => {
   try {
+    if (!(await assertOwnTask(req, res))) return;
+
     const result = await taskModel.complete(req.params.id, {
       confirm: req.body.confirm === true,
       actual_hours: req.body.actual_hours,
@@ -136,6 +179,12 @@ const complete = async (req, res, next) => {
 
 const bulkUpdate = async (req, res, next) => {
   try {
+    if (isMember(req)) {
+      return res
+        .status(403)
+        .json({ message: "Bulk actions are not available for team members" });
+    }
+
     const { taskIds, action, value, confirm, actual_hours } = req.body;
     const bulkValue =
       action === "complete"

@@ -18,6 +18,15 @@ const getAll = async (req, res, next) => {
   }
 };
 
+const getOptions = async (req, res, next) => {
+  try {
+    const projects = await projectModel.findOptions();
+    res.json({ data: projects, count: projects.length });
+  } catch (error) {
+    next(error);
+  }
+};
+
 const getById = async (req, res, next) => {
   try {
     const project = await projectModel.findById(req.params.id);
@@ -66,6 +75,7 @@ const remove = async (req, res, next) => {
 
 module.exports = {
   getAll,
+  getOptions,
   getById,
   create,
   update,

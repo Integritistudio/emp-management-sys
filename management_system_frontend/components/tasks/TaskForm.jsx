@@ -46,6 +46,8 @@ export function TaskForm({
   defaultProjectId = "",
   onSubmit,
   onCancel,
+  lockAssignee = false,
+  assigneeId = "",
 }) {
   const [form, setForm] = useState(() => buildEmptyForm(defaultProjectId));
   const [submitting, setSubmitting] = useState(false);
@@ -60,7 +62,7 @@ export function TaskForm({
         details: task.details || "",
         complexity: task.complexity || "medium",
         priority: task.priority || "medium",
-        assigned_to: task.assigned_to || "",
+        assigned_to: lockAssignee ? assigneeId || task.assigned_to || "" : task.assigned_to || "",
         start_time: task.start_time ? toDatetimeLocalValue(task.start_time) : "",
         deadline: task.deadline ? toDatetimeLocalValue(task.deadline) : "",
         estimated_hours: task.estimated_hours?.toString() || "",
@@ -70,11 +72,15 @@ export function TaskForm({
         deadline_manual: false,
       });
     } else {
-      setForm(buildEmptyForm(defaultProjectId));
+      const empty = buildEmptyForm(defaultProjectId);
+      if (lockAssignee && assigneeId) {
+        empty.assigned_to = assigneeId;
+      }
+      setForm(empty);
     }
     setFieldErrors({});
     setError("");
-  }, [task, defaultProjectId]);
+  }, [task, defaultProjectId, lockAssignee, assigneeId]);
 
   const computedDeadline = useMemo(() => {
     const startIso = form.start_time
@@ -186,7 +192,9 @@ export function TaskForm({
         details: form.details || null,
         complexity: form.complexity,
         priority: form.priority,
-        assigned_to: form.assigned_to || null,
+        assigned_to: lockAssignee
+          ? assigneeId || form.assigned_to || null
+          : form.assigned_to || null,
         estimated_hours: parseFloat(form.estimated_hours),
         status: form.status,
       };
@@ -287,14 +295,16 @@ export function TaskForm({
           options={TASK_PRIORITY_OPTIONS}
         />
       </div>
-      <Select
-        id="assigned_to"
-        label={tasksData.form.assigneeLabel}
-        value={form.assigned_to}
-        onChange={handleChange("assigned_to")}
-        options={developerOptions}
-        placeholder={tasksData.form.assigneePlaceholder}
-      />
+      {!lockAssignee ? (
+        <Select
+          id="assigned_to"
+          label={tasksData.form.assigneeLabel}
+          value={form.assigned_to}
+          onChange={handleChange("assigned_to")}
+          options={developerOptions}
+          placeholder={tasksData.form.assigneePlaceholder}
+        />
+      ) : null}
       <div className="grid gap-4 sm:grid-cols-2">
         <Input
           id="estimated_hours"

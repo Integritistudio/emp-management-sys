@@ -12,7 +12,9 @@ import {
 import { useTasks } from "@/hooks/useTasks";
 import { useProjects } from "@/hooks/useProjects";
 import { useTeam } from "@/hooks/useTeam";
+import { useAuthContext } from "@/hooks/useAuth";
 import { useDebouncedValue } from "@/hooks/useDebouncedValue";
+import { projectsApi } from "@/lib/projects";
 import { getNextSort } from "@/lib/sort";
 import { Button } from "@/components/ui/Button";
 import { Modal } from "@/components/ui/Modal";
@@ -30,6 +32,7 @@ import { commonData } from "@/data/common";
 export function TasksPageContent() {
   const router = useRouter();
   const searchParams = useSearchParams();
+  const { isMember, user } = useAuthContext();
   const [search, setSearch] = useState(searchParams.get("search") || "");
   const [projectId, setProjectId] = useState(searchParams.get("projectId") || "");
   const [developerId, setDeveloperId] = useState(
@@ -54,6 +57,7 @@ export function TasksPageContent() {
   const [taskToDelete, setTaskToDelete] = useState(null);
   const [deleteLoading, setDeleteLoading] = useState(false);
   const [bulkResult, setBulkResult] = useState(null);
+  const [projectOptionsList, setProjectOptionsList] = useState([]);
 
   useEffect(() => {
     if (!bulkResult) return undefined;
@@ -61,14 +65,35 @@ export function TasksPageContent() {
     return () => clearTimeout(timer);
   }, [bulkResult]);
 
-  const { projects } = useProjects();
-  const { members: developers } = useTeam();
+  const { projects: adminProjects } = useProjects({}, { enabled: !isMember });
+  const { members: developers } = useTeam({}, { enabled: !isMember });
+
+  useEffect(() => {
+    if (!isMember) {
+      setProjectOptionsList(adminProjects || []);
+      return;
+    }
+    let mounted = true;
+    projectsApi
+      .getOptions()
+      .then((res) => {
+        if (mounted) setProjectOptionsList(res.data || []);
+      })
+      .catch(() => {
+        if (mounted) setProjectOptionsList([]);
+      });
+    return () => {
+      mounted = false;
+    };
+  }, [isMember, adminProjects]);
+
+  const projects = isMember ? projectOptionsList : adminProjects || [];
 
   const params = useMemo(
     () => ({
       search: debouncedSearch || undefined,
       projectId: projectId || undefined,
-      developerId: developerId || undefined,
+      developerId: isMember ? undefined : developerId || undefined,
       status: status || undefined,
       complexity: complexity || undefined,
       priority: priority || undefined,
@@ -86,6 +111,7 @@ export function TasksPageContent() {
       startDate,
       endDate,
       searchParams,
+      isMember,
     ]
   );
 
@@ -106,7 +132,7 @@ export function TasksPageContent() {
     const query = new URLSearchParams();
     if (debouncedSearch) query.set("search", debouncedSearch);
     if (projectId) query.set("projectId", projectId);
-    if (developerId) query.set("developerId", developerId);
+    if (!isMember && developerId) query.set("developerId", developerId);
     if (status) query.set("status", status);
     if (complexity) query.set("complexity", complexity);
     if (priority) query.set("priority", priority);
@@ -127,6 +153,7 @@ export function TasksPageContent() {
     endDate,
     router,
     searchParams,
+    isMember,
   ]);
 
   useEffect(() => {
@@ -134,7 +161,14 @@ export function TasksPageContent() {
   }, [syncUrl]);
 
   const hasActiveFilters = Boolean(
-    search || projectId || developerId || status || complexity || priority || startDate || endDate
+    search ||
+      projectId ||
+      (!isMember && developerId) ||
+      status ||
+      complexity ||
+      priority ||
+      startDate ||
+      endDate
   );
 
   const clearFilters = () => {
@@ -154,7 +188,7 @@ export function TasksPageContent() {
     const query = new URLSearchParams();
     if (debouncedSearch) query.set("search", debouncedSearch);
     if (projectId) query.set("projectId", projectId);
-    if (developerId) query.set("developerId", developerId);
+    if (!isMember && developerId) query.set("developerId", developerId);
     if (status) query.set("status", status);
     if (complexity) query.set("complexity", complexity);
     if (priority) query.set("priority", priority);
@@ -171,7 +205,7 @@ export function TasksPageContent() {
     label: project.name,
   }));
 
-  const developerOptions = developers.map((dev) => ({
+  const developerOptions = (developers || []).map((dev) => ({
     value: dev.id,
     label: dev.full_name,
   }));
@@ -199,8 +233,6 @@ export function TasksPageContent() {
         data.status === "completed" && editingTask.status !== "completed";
 
       if (becomingCompleted) {
-        // PDF §12 — complete via timer endpoint so confirmation can run.
-        // Persist other field edits first without flipping status to completed.
         const { status: _status, actual_hours: actualHours, ...rest } = data;
         const hasManual =
           actualHours !== undefined &&
@@ -294,6 +326,33 @@ export function TasksPageContent() {
     }
   };
 
+  const formatBulkResult = (response) => {
+    const summary = response.summary || {};
+    const parts = [];
+    if (summary.updated) {
+      parts.push(tasksData.bulk.resultUpdated(summary.updated));
+    }
+    if (summary.skipped) {
+      parts.push(tasksData.bulk.resultSkipped(summary.skipped));
+    }
+    if (summary.failed) {
+      parts.push(tasksData.bulk.resultFailed(summary.failed));
+    }
+    const skippedDetails = (response.data || [])
+      .filter((row) => (row.skipped || (!row.success && row.message)) && row.message)
+      .slice(0, 8)
+      .map((row) => `${row.name || "Task"}: ${row.message}`);
+
+    const noneUpdated = !summary.updated;
+    return {
+      message: parts.length
+        ? parts.join(" · ")
+        : response.message || "Bulk action processed.",
+      details: skippedDetails,
+      hasSkips: Boolean(summary.skipped || summary.failed || noneUpdated),
+    };
+  };
+
   const confirmCompletion = async ({ useManual, actualHours } = {}) => {
     setActionLoading(true);
     try {
@@ -326,33 +385,6 @@ export function TasksPageContent() {
     setSelectedIds((prev) =>
       prev.includes(id) ? prev.filter((item) => item !== id) : [...prev, id]
     );
-  };
-
-  const formatBulkResult = (response) => {
-    const summary = response.summary || {};
-    const parts = [];
-    if (summary.updated) {
-      parts.push(tasksData.bulk.resultUpdated(summary.updated));
-    }
-    if (summary.skipped) {
-      parts.push(tasksData.bulk.resultSkipped(summary.skipped));
-    }
-    if (summary.failed) {
-      parts.push(tasksData.bulk.resultFailed(summary.failed));
-    }
-    const skippedDetails = (response.data || [])
-      .filter((row) => (row.skipped || (!row.success && row.message)) && row.message)
-      .slice(0, 8)
-      .map((row) => `${row.name || "Task"}: ${row.message}`);
-
-    const noneUpdated = !summary.updated;
-    return {
-      message: parts.length
-        ? parts.join(" · ")
-        : response.message || "Bulk action processed.",
-      details: skippedDetails,
-      hasSkips: Boolean(summary.skipped || summary.failed || noneUpdated),
-    };
   };
 
   const handleBulkApply = async () => {
@@ -388,12 +420,56 @@ export function TasksPageContent() {
     }
   };
 
+  const filterDefs = [
+    {
+      key: "projectId",
+      label: tasksData.filters.project,
+      value: projectId,
+      onChange: setProjectId,
+      options: projectOptions,
+    },
+    ...(!isMember
+      ? [
+          {
+            key: "developerId",
+            label: tasksData.filters.developer,
+            value: developerId,
+            onChange: setDeveloperId,
+            options: developerOptions,
+          },
+        ]
+      : []),
+    {
+      key: "status",
+      label: tasksData.filters.status,
+      value: status,
+      onChange: setStatus,
+      options: TASK_STATUS_OPTIONS,
+    },
+    {
+      key: "complexity",
+      label: tasksData.filters.complexity,
+      value: complexity,
+      onChange: setComplexity,
+      options: TASK_COMPLEXITY_OPTIONS,
+    },
+    {
+      key: "priority",
+      label: tasksData.filters.priority,
+      value: priority,
+      onChange: setPriority,
+      options: TASK_PRIORITY_OPTIONS,
+    },
+  ];
+
   return (
     <div>
       <div className="mb-6 flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
         <div>
           <h1 className="heading-page">{tasksData.pageTitle}</h1>
-          <p className="text-subtitle">{tasksData.subtitle}</p>
+          <p className="text-subtitle">
+            {isMember ? "View and manage your assigned tasks" : tasksData.subtitle}
+          </p>
         </div>
         <Button onClick={openCreate}>
           <Plus className="h-4 w-4" />
@@ -409,43 +485,7 @@ export function TasksPageContent() {
           searchPlaceholder={tasksData.searchPlaceholder}
           hasActiveFilters={hasActiveFilters}
           onClear={clearFilters}
-          filters={[
-            {
-              key: "projectId",
-              label: tasksData.filters.project,
-              value: projectId,
-              onChange: setProjectId,
-              options: projectOptions,
-            },
-            {
-              key: "developerId",
-              label: tasksData.filters.developer,
-              value: developerId,
-              onChange: setDeveloperId,
-              options: developerOptions,
-            },
-            {
-              key: "status",
-              label: tasksData.filters.status,
-              value: status,
-              onChange: setStatus,
-              options: TASK_STATUS_OPTIONS,
-            },
-            {
-              key: "complexity",
-              label: tasksData.filters.complexity,
-              value: complexity,
-              onChange: setComplexity,
-              options: TASK_COMPLEXITY_OPTIONS,
-            },
-            {
-              key: "priority",
-              label: tasksData.filters.priority,
-              value: priority,
-              onChange: setPriority,
-              options: TASK_PRIORITY_OPTIONS,
-            },
-          ]}
+          filters={filterDefs}
           dateRange={{
             startLabel: tasksData.filters.startDate,
             endLabel: tasksData.filters.endDate,
@@ -457,25 +497,27 @@ export function TasksPageContent() {
         />
       </div>
 
-      <BulkActionsBar
-        selectedCount={selectedIds.length}
-        action={bulkAction}
-        value={bulkValue}
-        developers={developers}
-        projects={projects}
-        onActionChange={(value) => {
-          setBulkAction(value);
-          setBulkValue("");
-        }}
-        onValueChange={setBulkValue}
-        onApply={handleBulkApply}
-        onClear={() => {
-          setSelectedIds([]);
-          setBulkAction("");
-          setBulkValue("");
-        }}
-        loading={actionLoading}
-      />
+      {!isMember ? (
+        <BulkActionsBar
+          selectedCount={selectedIds.length}
+          action={bulkAction}
+          value={bulkValue}
+          developers={developers}
+          projects={projects}
+          onActionChange={(value) => {
+            setBulkAction(value);
+            setBulkValue("");
+          }}
+          onValueChange={setBulkValue}
+          onApply={handleBulkApply}
+          onClear={() => {
+            setSelectedIds([]);
+            setBulkAction("");
+            setBulkValue("");
+          }}
+          loading={actionLoading}
+        />
+      ) : null}
 
       {bulkResult ? (
         <div
@@ -530,22 +572,27 @@ export function TasksPageContent() {
             <TasksTable
               tasks={pageTasks}
               selectedIds={selectedIds}
-              onToggleSelect={toggleSelect}
-              onToggleSelectAll={() => {
-                const pageIds = pageTasks.map((t) => t.id);
-                const allSelected =
-                  pageIds.length > 0 &&
-                  pageIds.every((id) => selectedIds.includes(id));
-                if (allSelected) {
-                  setSelectedIds((prev) =>
-                    prev.filter((id) => !pageIds.includes(id))
-                  );
-                } else {
-                  setSelectedIds((prev) => [
-                    ...new Set([...prev, ...pageIds]),
-                  ]);
-                }
-              }}
+              onToggleSelect={isMember ? undefined : toggleSelect}
+              onToggleSelectAll={
+                isMember
+                  ? undefined
+                  : () => {
+                      const pageIds = pageTasks.map((t) => t.id);
+                      const allSelected =
+                        pageIds.length > 0 &&
+                        pageIds.every((id) => selectedIds.includes(id));
+                      if (allSelected) {
+                        setSelectedIds((prev) =>
+                          prev.filter((id) => !pageIds.includes(id))
+                        );
+                      } else {
+                        setSelectedIds((prev) => [
+                          ...new Set([...prev, ...pageIds]),
+                        ]);
+                      }
+                    }
+              }
+              hideSelection={isMember}
               onEdit={openEdit}
               onDelete={handleDelete}
               onPause={handlePause}
@@ -568,8 +615,10 @@ export function TasksPageContent() {
         <TaskForm
           task={editingTask}
           projects={projects}
-          developers={developers}
+          developers={developers || []}
           defaultProjectId={projectId}
+          lockAssignee={isMember}
+          assigneeId={user?.memberId || user?.id || ""}
           onSubmit={handleSubmit}
           onCancel={() => setModalOpen(false)}
         />

@@ -4,6 +4,7 @@ import { useCallback, useEffect, useMemo, useState } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import { dashboardData } from "@/data/dashboard";
 import { useDashboard } from "@/hooks/useDashboard";
+import { useAuthContext } from "@/hooks/useAuth";
 import { Button } from "@/components/ui/Button";
 import { AnalyticsCards } from "./AnalyticsCards";
 import { TeamPerformanceTable } from "./TeamPerformanceTable";
@@ -13,6 +14,7 @@ import { TeamMatrix } from "./TeamMatrix";
 export function DashboardPageContent() {
   const router = useRouter();
   const searchParams = useSearchParams();
+  const { isMember, user } = useAuthContext();
   const [period, setPeriod] = useState(searchParams.get("period") || "week");
   const [startDate, setStartDate] = useState(
     searchParams.get("startDate") || ""
@@ -25,7 +27,6 @@ export function DashboardPageContent() {
   const params = useMemo(() => {
     if (period === "custom") {
       if (!startDate || !endDate) {
-        // Keep last valid week filter until both custom dates exist
         return { period: "week" };
       }
       return { period: "custom", startDate, endDate };
@@ -41,7 +42,7 @@ export function DashboardPageContent() {
     loading,
     error,
     refresh,
-  } = useDashboard(params);
+  } = useDashboard(params, { memberMode: isMember });
 
   const syncUrl = useCallback(() => {
     const query = new URLSearchParams();
@@ -56,12 +57,21 @@ export function DashboardPageContent() {
     syncUrl();
   }, [syncUrl]);
 
+  const subtitle = isMember
+    ? dashboardData.memberSubtitle
+    : dashboardData.subtitle;
+
   return (
     <div className="space-y-8">
       <div className="flex flex-col gap-4 lg:flex-row lg:items-end lg:justify-between">
         <div>
           <h1 className="heading-page">{dashboardData.pageTitle}</h1>
-          <p className="text-subtitle">{dashboardData.subtitle}</p>
+          <p className="text-subtitle">{subtitle}</p>
+          {isMember && user?.full_name ? (
+            <p className="mt-1 text-sm text-text-secondary">
+              {dashboardData.welcome}, {user.full_name}
+            </p>
+          ) : null}
         </div>
 
         <div className="flex flex-col gap-2">
@@ -114,21 +124,25 @@ export function DashboardPageContent() {
       ) : null}
 
       <section>
-        <AnalyticsCards stats={stats} loading={loading} />
+        <AnalyticsCards stats={stats} loading={loading} memberMode={isMember} />
       </section>
 
-      <section className="grid gap-6 xl:grid-cols-2">
-        <TeamPerformanceTable data={teamPerformance} loading={loading} />
-        <WeekdayBreakdown
-          data={weekdayBreakdown}
-          loading={loading}
-          developersList={teamPerformance}
-        />
-      </section>
+      {!isMember ? (
+        <>
+          <section className="grid gap-6 xl:grid-cols-2">
+            <TeamPerformanceTable data={teamPerformance} loading={loading} />
+            <WeekdayBreakdown
+              data={weekdayBreakdown}
+              loading={loading}
+              developersList={teamPerformance}
+            />
+          </section>
 
-      <section>
-        <TeamMatrix matrix={matrix} loading={loading} onUpdated={refresh} />
-      </section>
+          <section>
+            <TeamMatrix matrix={matrix} loading={loading} onUpdated={refresh} />
+          </section>
+        </>
+      ) : null}
     </div>
   );
 }

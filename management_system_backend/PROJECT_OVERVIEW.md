@@ -23,7 +23,7 @@
 
 ## Purpose
 
-Node/Express REST API for the Integriti internal employee management platform. Single admin user manages projects, tasks, team members, dashboards, and PDF reports.
+Node/Express REST API for the Integriti internal employee management platform. Supports **admin** and **team member** logins. Admins manage projects, tasks, team members, dashboards, and PDF reports. Members see only their own stats, tasks, and report.
 
 Specification source: `management_system_frontend/public/assets/Integriti Employee Management System.pdf`
 
@@ -100,10 +100,23 @@ npm start      # manual restart required
 
 ## Authentication
 
-- `POST /api/auth/login` — email + password → sets `token` httpOnly cookie
-- `GET /api/auth/me` — returns current admin (requires cookie)
-- `POST /api/auth/logout` — clears cookie
-- All other routes use `authMiddleware` (except `/health` and login)
+Roles: **`admin`** (table `admins`) and **`member`** (table `team_members` with a non-null `password_hash`).
+
+| Endpoint | Description |
+|----------|-------------|
+| `POST /api/auth/login` | Tries admin first, then team member with login enabled. Sets `token` httpOnly cookie. JWT includes `{ id, email, role, memberId? }`. |
+| `GET /api/auth/me` | Returns `{ user, admin }` where `user` has `id`, `email`, `role`, and for members `full_name` + `memberId`. |
+| `POST /api/auth/logout` | Clears cookie |
+| `POST /api/auth/change-password` | Body `{ currentPassword, newPassword }` — verifies current password, updates hash (min 6 chars). Works for both roles. |
+
+- All resource routes use `authMiddleware` (except `/health` and login/logout).
+- `requireAdmin` blocks members from team CRUD, full project CRUD, org-wide dashboard sections, and project reports.
+- Members may call `GET /projects/options` (id + name only) to pick a project when creating a task.
+- Task list/create/update for members is forced to `assigned_to = self`. Bulk task actions are admin-only.
+
+### Enabling member login
+
+Admin sets an optional **password** when creating or editing a team member. That stores a bcrypt `password_hash` on `team_members`. Until a password is set, the member cannot log in (`has_login: false` in API responses). Members then sign in with their **email + password**.
 
 ---
 
@@ -111,12 +124,12 @@ npm start      # manual restart required
 
 | Prefix | Module |
 |--------|--------|
-| `/auth` | Login, logout, session |
-| `/team-members` | Team CRUD + matrix rating |
-| `/projects` | Project CRUD + aggregated task metrics |
-| `/tasks` | Task CRUD, pause/resume/complete, bulk actions |
-| `/dashboard` | Stats, team performance, weekday breakdown, matrix |
-| `/reports` | Team/project reports, PDF export |
+| `/auth` | Login, logout, session, change-password |
+| `/team-members` | Team CRUD + matrix rating (**admin only**) |
+| `/projects` | Project CRUD (**admin**); `/projects/options` for all authenticated users |
+| `/tasks` | Task CRUD, pause/resume/complete; members scoped to own tasks |
+| `/dashboard` | Stats (member = own stats); team performance / weekday / matrix (**admin**) |
+| `/reports` | Team/project reports; members = own report + `/reports/me`; project reports admin-only |
 
 Full interactive docs: **`/api/docs`**
 
@@ -125,6 +138,13 @@ Full interactive docs: **`/api/docs`**
 ## Database
 
 Main tables: `admins`, `team_members`, `projects`, `tasks`
+
+### `team_members` auth columns
+
+| Column | Purpose |
+|--------|---------|
+| `password_hash` | Nullable bcrypt hash; `NULL` means login disabled |
+| *(API)* `has_login` | Derived boolean — never expose `password_hash` in responses |
 
 ### Task columns (timer-related)
 
@@ -241,6 +261,7 @@ When adding a new endpoint:
 
 | Date | Change |
 |------|--------|
+| 2026-07-22 | Member login + role-scoped APIs; change-password; project options; member dashboard stats |
 | 2026-07-07 | Office-hours deadline calculation (5 PM–2 AM) |
 | 2026-07-07 | Auto actual_hours on completion via update path |
 | 2026-07-07 | Completed-only efficiency/time-logged alignment |
@@ -249,4 +270,4 @@ When adding a new endpoint:
 
 ---
 
-*Last updated: 2026-07-07*
+*Last updated: 2026-07-22*

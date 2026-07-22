@@ -1,19 +1,31 @@
 "use client";
 
-import { useAuth } from "@/hooks/useAuth";
+import { AuthProvider, useAuthContext } from "@/hooks/useAuth";
 import { DashboardShell } from "@/components/layout/DashboardShell";
 import { PageLoader } from "@/components/ui/PageLoader";
 
-export default function DashboardLayout({ children }) {
-  const { admin, loading, logout } = useAuth({ requireAuth: true });
+function DashboardLayoutInner({ children }) {
+  const { user, loading, logout } = useAuthContext();
 
   if (loading) {
     return <PageLoader />;
   }
 
+  if (!user) {
+    return <PageLoader />;
+  }
+
   return (
-    <DashboardShell admin={admin} onSignOut={logout}>
+    <DashboardShell user={user} onSignOut={logout}>
       {children}
     </DashboardShell>
+  );
+}
+
+export default function DashboardLayout({ children }) {
+  return (
+    <AuthProvider requireAuth>
+      <DashboardLayoutInner>{children}</DashboardLayoutInner>
+    </AuthProvider>
   );
 }

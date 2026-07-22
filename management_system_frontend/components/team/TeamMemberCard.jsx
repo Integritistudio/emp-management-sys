@@ -24,7 +24,14 @@ export function TeamMemberCard({ member, onEdit, onDelete }) {
       tabIndex={0}
     >
       <div className="mb-4 border-b border-border-light pb-3">
-        <h3 className="text-tagline font-semibold text-text-primary">{member.full_name}</h3>
+        <div className="flex items-start justify-between gap-2">
+          <h3 className="text-tagline font-semibold text-text-primary">{member.full_name}</h3>
+          {member.has_login ? (
+            <span className="shrink-0 rounded-md bg-emerald-50 px-2 py-0.5 text-[10px] font-medium text-emerald-700">
+              {teamData.card.loginEnabled}
+            </span>
+          ) : null}
+        </div>
         <p className="text-caption text-text-secondary">{member.title}</p>
         <p className="mt-1 text-caption text-text-muted">{member.email}</p>
       </div>
