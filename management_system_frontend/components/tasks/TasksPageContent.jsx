@@ -216,11 +216,11 @@ export function TasksPageContent() {
   };
 
   useEffect(() => {
-    if (searchParams.get("create") === "1") {
+    if (!isMember && searchParams.get("create") === "1") {
       setEditingTask(null);
       setModalOpen(true);
     }
-  }, [searchParams]);
+  }, [searchParams, isMember]);
 
   const openEdit = (task) => {
     setEditingTask(task);
@@ -468,13 +468,15 @@ export function TasksPageContent() {
         <div>
           <h1 className="heading-page">{tasksData.pageTitle}</h1>
           <p className="text-subtitle">
-            {isMember ? "View and manage your assigned tasks" : tasksData.subtitle}
+            {isMember ? "View your assigned tasks" : tasksData.subtitle}
           </p>
         </div>
-        <Button onClick={openCreate}>
-          <Plus className="h-4 w-4" />
-          {tasksData.addButton}
-        </Button>
+        {!isMember ? (
+          <Button onClick={openCreate}>
+            <Plus className="h-4 w-4" />
+            {tasksData.addButton}
+          </Button>
+        ) : null}
       </div>
 
       <div className="mb-6">
