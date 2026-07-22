@@ -35,6 +35,7 @@ export function TasksTable({
   onToggleSelect,
   onToggleSelectAll,
   hideSelection = false,
+  hideActions = false,
   onEdit,
   onDelete,
   onPause,
@@ -120,7 +121,9 @@ export function TasksTable({
               onSort={onSort}
             />
           </TableHeaderCell>
-          <TableHeaderCell>{tasksData.table.actions}</TableHeaderCell>
+          {!hideActions ? (
+            <TableHeaderCell>{tasksData.table.actions}</TableHeaderCell>
+          ) : null}
         </TableRow>
       </TableHead>
       <TableBody>
@@ -130,8 +133,8 @@ export function TasksTable({
             <TableRow
               key={task.id}
               className={getTaskRowClass(task)}
-              clickable
-              onClick={() => onEdit(task)}
+              clickable={!hideActions}
+              onClick={hideActions ? undefined : () => onEdit(task)}
             >
               {!hideSelection ? (
                 <TableCell
@@ -202,26 +205,28 @@ export function TasksTable({
                   {formatLabel(task.status)}
                 </Badge>
               </TableCell>
-              <TableCell
-                className="whitespace-nowrap"
-                onClick={(e) => e.stopPropagation()}
-                onKeyDown={(e) => e.stopPropagation()}
-              >
-                <div className="flex items-center gap-1">
-                  <TaskTimerActions
-                    task={task}
-                    onPause={onPause}
-                    onResume={onResume}
-                    onComplete={onComplete}
-                    loading={actionLoading}
-                  />
-                  <TableActionButtons
-                    showView={false}
-                    onEdit={() => onEdit(task)}
-                    onDelete={() => onDelete(task)}
-                  />
-                </div>
-              </TableCell>
+              {!hideActions ? (
+                <TableCell
+                  className="whitespace-nowrap"
+                  onClick={(e) => e.stopPropagation()}
+                  onKeyDown={(e) => e.stopPropagation()}
+                >
+                  <div className="flex items-center gap-1">
+                    <TaskTimerActions
+                      task={task}
+                      onPause={onPause}
+                      onResume={onResume}
+                      onComplete={onComplete}
+                      loading={actionLoading}
+                    />
+                    <TableActionButtons
+                      showView={false}
+                      onEdit={() => onEdit(task)}
+                      onDelete={() => onDelete(task)}
+                    />
+                  </div>
+                </TableCell>
+              ) : null}
             </TableRow>
           );
         })}

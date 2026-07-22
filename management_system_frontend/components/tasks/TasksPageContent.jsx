@@ -595,6 +595,7 @@ export function TasksPageContent() {
                     }
               }
               hideSelection={isMember}
+              hideActions={isMember}
               onEdit={openEdit}
               onDelete={handleDelete}
               onPause={handlePause}
