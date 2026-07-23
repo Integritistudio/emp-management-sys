@@ -42,6 +42,10 @@ const mapProject = (row) => {
     start_date: row.start_date,
     quality: row.quality,
     status: row.status,
+    locked_hours:
+      row.locked_hours !== null && row.locked_hours !== undefined
+        ? Number(row.locked_hours)
+        : null,
     total_tasks: row.total_tasks || 0,
     completed_tasks: row.completed_tasks || 0,
     active_tasks: row.active_tasks || 0,
@@ -184,10 +188,11 @@ const create = async ({
   quality,
   status,
   owner_id,
+  locked_hours,
 }) => {
   const result = await pool.query(
-    `INSERT INTO projects (name, lead_developer_id, start_date, quality, status, owner_id)
-     VALUES ($1, $2, $3, $4, $5, $6)
+    `INSERT INTO projects (name, lead_developer_id, start_date, quality, status, owner_id, locked_hours)
+     VALUES ($1, $2, $3, $4, $5, $6, $7)
      RETURNING id`,
     [
       name,
@@ -196,12 +201,19 @@ const create = async ({
       quality || "medium",
       status || "not_started",
       owner_id || null,
+      locked_hours !== undefined && locked_hours !== null && locked_hours !== ""
+        ? Number(locked_hours)
+        : null,
     ]
   );
   return findById(result.rows[0].id);
 };
 
 const update = async (id, data) => {
+  const hasLockedHours = Object.prototype.hasOwnProperty.call(
+    data,
+    "locked_hours"
+  );
   const result = await pool.query(
     `UPDATE projects
      SET name = COALESCE($2, name),
@@ -210,6 +222,7 @@ const update = async (id, data) => {
          quality = COALESCE($5, quality),
          status = COALESCE($6, status),
          owner_id = COALESCE($7, owner_id),
+         locked_hours = CASE WHEN $9::boolean THEN $8 ELSE locked_hours END,
          updated_at = NOW()
      WHERE id = $1
      RETURNING id`,
@@ -221,6 +234,12 @@ const update = async (id, data) => {
       data.quality,
       data.status,
       data.owner_id !== undefined ? data.owner_id : null,
+      hasLockedHours &&
+      data.locked_hours !== null &&
+      data.locked_hours !== ""
+        ? Number(data.locked_hours)
+        : null,
+      hasLockedHours,
     ]
   );
   return result.rows[0] ? findById(result.rows[0].id) : null;

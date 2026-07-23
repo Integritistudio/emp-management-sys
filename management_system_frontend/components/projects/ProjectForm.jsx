@@ -14,6 +14,7 @@ const emptyForm = {
   start_date: "",
   quality: "medium",
   status: "not_started",
+  locked_hours: "",
 };
 
 export function ProjectForm({ project, developers = [], onSubmit, onCancel }) {
@@ -32,6 +33,10 @@ export function ProjectForm({ project, developers = [], onSubmit, onCancel }) {
           : "",
         quality: project.quality || "medium",
         status: project.status || "not_started",
+        locked_hours:
+          project.locked_hours !== null && project.locked_hours !== undefined
+            ? String(project.locked_hours)
+            : "",
       });
     } else {
       setForm(emptyForm);
@@ -55,6 +60,9 @@ export function ProjectForm({ project, developers = [], onSubmit, onCancel }) {
       name: required(form.name, "Project name is required"),
       start_date: required(form.start_date, "Start date is required"),
     };
+    if (form.locked_hours !== "" && Number(form.locked_hours) < 0) {
+      errors.locked_hours = "Locked hours must be 0 or greater";
+    }
     setFieldErrors(errors);
     return !hasErrors(errors);
   };
@@ -69,6 +77,8 @@ export function ProjectForm({ project, developers = [], onSubmit, onCancel }) {
       await onSubmit({
         ...form,
         lead_developer_id: form.lead_developer_id || null,
+        locked_hours:
+          form.locked_hours === "" ? null : Number(form.locked_hours),
       });
     } catch (err) {
       setError(err instanceof ApiError ? err.message : "Failed to save project");
@@ -127,6 +137,17 @@ export function ProjectForm({ project, developers = [], onSubmit, onCancel }) {
         value={form.status}
         onChange={handleChange("status")}
         options={PROJECT_STATUS_OPTIONS}
+      />
+      <Input
+        id="locked_hours"
+        type="number"
+        min="0"
+        step="0.01"
+        label={projectsData.form.lockedHoursLabel}
+        placeholder={projectsData.form.lockedHoursPlaceholder}
+        value={form.locked_hours}
+        onChange={handleChange("locked_hours")}
+        error={fieldErrors.locked_hours}
       />
 
       <div className="flex justify-end gap-3 pt-2">

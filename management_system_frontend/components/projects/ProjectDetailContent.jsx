@@ -97,6 +97,13 @@ export function ProjectDetailContent({ projectId }) {
         </Badge>
       ),
     },
+    {
+      label: projectsData.detail.lockedHours,
+      value:
+        project.locked_hours !== null && project.locked_hours !== undefined
+          ? formatHours(project.locked_hours)
+          : "—",
+    },
   ];
 
   // PDF 8.5 + 8.7 — overview metrics in specification order

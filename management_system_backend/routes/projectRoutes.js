@@ -15,6 +15,10 @@ const projectValidation = [
     .isIn(["not_started", "active", "on_hold", "completed", "delayed", "cancelled"]),
   body("lead_developer_id").optional({ nullable: true }).isUUID(),
   body("owner_id").optional({ nullable: true }).isUUID(),
+  body("locked_hours")
+    .optional({ nullable: true, checkFalsy: true })
+    .isFloat({ min: 0 })
+    .withMessage("Locked hours must be a non-negative number"),
 ];
 
 const allowProjectAccess = requireRoles("admin", "project_admin");
@@ -56,6 +60,10 @@ router.put(
     .isIn(["not_started", "active", "on_hold", "completed", "delayed", "cancelled"]),
   body("lead_developer_id").optional({ nullable: true }).isUUID(),
   body("owner_id").optional({ nullable: true }).isUUID(),
+  body("locked_hours")
+    .optional({ nullable: true, checkFalsy: true })
+    .isFloat({ min: 0 })
+    .withMessage("Locked hours must be a non-negative number"),
   validate,
   projectController.update
 );

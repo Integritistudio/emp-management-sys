@@ -47,6 +47,10 @@ const initQueries = [
 
   `ALTER TABLE projects ADD COLUMN IF NOT EXISTS owner_id UUID REFERENCES project_managers(id) ON DELETE SET NULL`,
 
+  `ALTER TABLE projects DROP COLUMN IF EXISTS hours_locked`,
+
+  `ALTER TABLE projects ADD COLUMN IF NOT EXISTS locked_hours DECIMAL(10, 2)`,
+
   `CREATE TABLE IF NOT EXISTS project_collaborators (
     id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
     project_id UUID NOT NULL REFERENCES projects(id) ON DELETE CASCADE,

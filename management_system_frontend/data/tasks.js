@@ -11,7 +11,7 @@ export const tasksData = {
     namePlaceholder: "Enter task name",
     projectLabel: "Project",
     projectPlaceholder: "Select project",
-    detailsLabel: "Task Details",
+    detailsLabel: "Task Deliverables",
     detailsPlaceholder: "Describe the task scope and requirements",
     complexityLabel: "Complexity",
     priorityLabel: "Priority",

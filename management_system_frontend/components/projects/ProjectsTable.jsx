@@ -66,6 +66,7 @@ export function ProjectsTable({ projects, onEdit, onDelete, sort, onSort }) {
               onSort={onSort}
             />
           </TableHeaderCell>
+          <TableHeaderCell>{projectsData.table.lockedHours}</TableHeaderCell>
           <TableHeaderCell>{projectsData.table.totalTasks}</TableHeaderCell>
           <TableHeaderCell>{projectsData.table.estimated}</TableHeaderCell>
           <TableHeaderCell>{projectsData.table.actual}</TableHeaderCell>
@@ -95,6 +96,12 @@ export function ProjectsTable({ projects, onEdit, onDelete, sort, onSort }) {
               <Badge variant={getStatusVariant(project.status)}>
                 {formatLabel(project.status)}
               </Badge>
+            </TableCell>
+            <TableCell>
+              {project.locked_hours !== null &&
+              project.locked_hours !== undefined
+                ? formatHours(project.locked_hours)
+                : "—"}
             </TableCell>
             <TableCell>{project.total_tasks}</TableCell>
             <TableCell>{formatHours(project.total_estimated_time)}</TableCell>
