@@ -1,6 +1,12 @@
 const reportModel = require("../models/reportModel");
 const { generateTeamPdf, generateProjectPdf } = require("../services/pdfService");
-const { isMember, memberId } = require("../middleware/authMiddleware");
+const {
+  isMember,
+  isProjectAdmin,
+  memberId,
+  canAccessProject,
+  getAccessibleProjectIds,
+} = require("../middleware/authMiddleware");
 
 const getQuery = (req) => ({
   period: req.query.period,
@@ -22,6 +28,18 @@ const getBodyFilters = (body = {}) => ({
   status: body.status,
 });
 
+const withProjectScope = async (req, filters) => {
+  if (!isProjectAdmin(req)) return filters;
+  const ids = await getAccessibleProjectIds(req.user);
+  if (filters.projectId) {
+    if (!ids.includes(filters.projectId)) {
+      return { ...filters, projectIds: [] };
+    }
+    return filters;
+  }
+  return { ...filters, projectIds: ids };
+};
+
 const forbidMember = (req, res) => {
   if (isMember(req)) {
     res.status(403).json({ message: "Admin access required" });
@@ -39,7 +57,8 @@ const getTeamReports = async (req, res, next) => {
       }
       return res.json({ data });
     }
-    const data = await reportModel.getTeamReports(getQuery(req));
+    const filters = await withProjectScope(req, getQuery(req));
+    const data = await reportModel.getTeamReports(filters);
     res.json({ data });
   } catch (error) {
     next(error);
@@ -66,7 +85,8 @@ const getTeamReportById = async (req, res, next) => {
     if (isMember(req) && req.params.id !== memberId(req)) {
       return res.status(403).json({ message: "You can only view your own report" });
     }
-    const data = await reportModel.getTeamReportById(req.params.id, getQuery(req));
+    const filters = await withProjectScope(req, getQuery(req));
+    const data = await reportModel.getTeamReportById(req.params.id, filters);
     if (!data) {
       return res.status(404).json({ message: "Team member not found" });
     }
@@ -79,7 +99,8 @@ const getTeamReportById = async (req, res, next) => {
 const getProjectReports = async (req, res, next) => {
   try {
     if (forbidMember(req, res)) return;
-    const data = await reportModel.getProjectReports(getQuery(req));
+    const filters = await withProjectScope(req, getQuery(req));
+    const data = await reportModel.getProjectReports(filters);
     res.json({ data });
   } catch (error) {
     next(error);
@@ -89,6 +110,9 @@ const getProjectReports = async (req, res, next) => {
 const getProjectReportById = async (req, res, next) => {
   try {
     if (forbidMember(req, res)) return;
+    if (isProjectAdmin(req) && !(await canAccessProject(req.user, req.params.id))) {
+      return res.status(403).json({ message: "Access denied" });
+    }
     const data = await reportModel.getProjectReportById(
       req.params.id,
       getQuery(req)
@@ -104,11 +128,13 @@ const getProjectReportById = async (req, res, next) => {
 
 const exportTeamPdf = async (req, res, next) => {
   try {
-    const filters = getBodyFilters(req.body);
+    let filters = getBodyFilters(req.body);
 
     if (isMember(req)) {
       filters.developerId = memberId(req);
       filters.teamMemberId = memberId(req);
+    } else {
+      filters = await withProjectScope(req, filters);
     }
 
     const reportData = await reportModel.getTeamExportData(filters);
@@ -133,7 +159,17 @@ const exportProjectPdf = async (req, res, next) => {
   try {
     if (forbidMember(req, res)) return;
 
-    const filters = getBodyFilters(req.body);
+    let filters = getBodyFilters(req.body);
+    filters = await withProjectScope(req, filters);
+
+    if (
+      isProjectAdmin(req) &&
+      filters.projectId &&
+      !(await canAccessProject(req.user, filters.projectId))
+    ) {
+      return res.status(403).json({ message: "Access denied" });
+    }
+
     const reportData = await reportModel.getProjectExportData(filters);
 
     if (!reportData) {

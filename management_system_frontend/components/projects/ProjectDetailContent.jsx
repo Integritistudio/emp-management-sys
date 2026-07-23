@@ -17,6 +17,7 @@ import { ConfirmDialog } from "@/components/ui/ConfirmDialog";
 import { EmptyState } from "@/components/ui/EmptyState";
 import { TableSkeleton } from "@/components/ui/TableSkeleton";
 import { ProjectForm } from "./ProjectForm";
+import { ProjectCollaborators } from "./ProjectCollaborators";
 import { commonData } from "@/data/common";
 import {
   Table,
@@ -42,7 +43,7 @@ import { PaginatedTable } from "@/components/ui/PaginatedTable";
 export function ProjectDetailContent({ projectId }) {
   const router = useRouter();
   const { members: developers } = useTeam();
-  const { project, loading, error, updateProject, deleteProject } =
+  const { project, loading, error, updateProject, deleteProject, refresh } =
     useProject(projectId);
   const [modalOpen, setModalOpen] = useState(false);
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
@@ -215,6 +216,13 @@ export function ProjectDetailContent({ projectId }) {
           </Card>
         ))}
       </div>
+
+      <ProjectCollaborators
+        projectId={project.id}
+        ownerId={project.owner_id}
+        initialCollaborators={project.collaborators || []}
+        onChanged={refresh}
+      />
 
       <div className="mb-4 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
         <h2 className="text-lg font-semibold text-text-primary">

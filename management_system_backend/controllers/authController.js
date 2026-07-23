@@ -2,6 +2,7 @@ const bcrypt = require("bcryptjs");
 const jwt = require("jsonwebtoken");
 const adminModel = require("../models/adminModel");
 const teamMemberModel = require("../models/teamMemberModel");
+const projectManagerModel = require("../models/projectManagerModel");
 
 const BCRYPT_ROUNDS = 12;
 
@@ -47,12 +48,46 @@ const login = async (req, res, next) => {
           email: admin.email,
           role: "admin",
         },
-        // Backward-compatible shape for existing frontend
         admin: {
           id: admin.id,
           email: admin.email,
           role: "admin",
         },
+      });
+    }
+
+    const manager = await projectManagerModel.findAuthByEmail(email);
+    if (manager && manager.password_hash) {
+      const isValid = await bcrypt.compare(password, manager.password_hash);
+      if (!isValid) {
+        console.warn(
+          `[AUTH] Login failed — wrong password for project admin: ${email}`
+        );
+        return res.status(401).json({ message: "Invalid email or password" });
+      }
+
+      const token = signToken({
+        id: manager.id,
+        email: manager.email,
+        role: "project_admin",
+        managerId: manager.id,
+      });
+
+      res.cookie("token", token, COOKIE_OPTIONS);
+      console.log(`[AUTH] Project admin login successful for: ${email}`);
+
+      const user = {
+        id: manager.id,
+        email: manager.email,
+        role: "project_admin",
+        full_name: manager.full_name,
+        managerId: manager.id,
+      };
+
+      return res.json({
+        message: "Login successful",
+        user,
+        admin: user,
       });
     }
 
@@ -114,11 +149,13 @@ const me = (req, res) => {
     ...(req.user.role === "member"
       ? { full_name: req.user.full_name, memberId: req.user.memberId }
       : {}),
+    ...(req.user.role === "project_admin"
+      ? { full_name: req.user.full_name, managerId: req.user.managerId }
+      : {}),
   };
 
   res.json({
     user,
-    // Backward-compatible shape
     admin: user,
   });
 };
@@ -152,6 +189,22 @@ const changePassword = async (req, res, next) => {
 
       const passwordHash = await bcrypt.hash(newPassword, BCRYPT_ROUNDS);
       await adminModel.updatePassword(admin.id, passwordHash);
+    } else if (req.user.role === "project_admin") {
+      const manager = await projectManagerModel.findAuthById(req.user.id);
+      if (!manager || !manager.password_hash) {
+        return res.status(401).json({ message: "Invalid session" });
+      }
+
+      const isValid = await bcrypt.compare(
+        currentPassword,
+        manager.password_hash
+      );
+      if (!isValid) {
+        return res.status(400).json({ message: "Current password is incorrect" });
+      }
+
+      const passwordHash = await bcrypt.hash(newPassword, BCRYPT_ROUNDS);
+      await projectManagerModel.updatePassword(manager.id, passwordHash);
     } else {
       const member = await teamMemberModel.findAuthById(req.user.id);
       if (!member || !member.password_hash) {

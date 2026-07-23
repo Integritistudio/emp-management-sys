@@ -2,7 +2,10 @@ const express = require("express");
 const { body, param } = require("express-validator");
 const teamMemberController = require("../controllers/teamMemberController");
 const validate = require("../middleware/validateMiddleware");
-const { requireAdmin } = require("../middleware/authMiddleware");
+const {
+  requireAdmin,
+  requireRoles,
+} = require("../middleware/authMiddleware");
 
 const router = express.Router();
 
@@ -16,45 +19,34 @@ const memberValidation = [
     .withMessage("Password must be at least 6 characters"),
 ];
 
-router.use(requireAdmin);
+const allowTeamRead = requireRoles("admin", "project_admin");
 
 /**
  * @swagger
  * /team-members:
  *   get:
- *     summary: List team members (admin only)
+ *     summary: List team members (admin and project admin)
  *     tags: [Team]
  *     security: [{ cookieAuth: [] }]
- *     responses:
- *       200:
- *         description: Team members list
- *   post:
- *     summary: Create team member (admin only)
- *     description: Optional `password` enables member login with their email.
- *     tags: [Team]
- *     security: [{ cookieAuth: [] }]
- *     requestBody:
- *       required: true
- *       content:
- *         application/json:
- *           schema:
- *             type: object
- *             required: [title, full_name, email]
- *             properties:
- *               title: { type: string }
- *               full_name: { type: string }
- *               email: { type: string, format: email }
- *               password: { type: string, minLength: 6 }
- *     responses:
- *       201:
- *         description: Team member created
  */
-router.get("/", teamMemberController.getAll);
-router.get("/options/titles", teamMemberController.getTitles);
-router.get("/:id", param("id").isUUID(), validate, teamMemberController.getById);
-router.post("/", memberValidation, validate, teamMemberController.create);
+router.get("/", allowTeamRead, teamMemberController.getAll);
+router.get(
+  "/options/titles",
+  allowTeamRead,
+  teamMemberController.getTitles
+);
+router.get(
+  "/:id",
+  allowTeamRead,
+  param("id").isUUID(),
+  validate,
+  teamMemberController.getById
+);
+
+router.post("/", requireAdmin, memberValidation, validate, teamMemberController.create);
 router.put(
   "/:id",
+  requireAdmin,
   param("id").isUUID(),
   validate,
   memberValidation,
@@ -63,12 +55,19 @@ router.put(
 );
 router.patch(
   "/:id/matrix-rating",
+  requireAdmin,
   param("id").isUUID(),
   body("output_level").optional().isIn(["low", "medium", "high"]),
   body("quality_level").optional().isIn(["low", "medium", "high"]),
   validate,
   teamMemberController.updateMatrixRating
 );
-router.delete("/:id", param("id").isUUID(), validate, teamMemberController.remove);
+router.delete(
+  "/:id",
+  requireAdmin,
+  param("id").isUUID(),
+  validate,
+  teamMemberController.remove
+);
 
 module.exports = router;

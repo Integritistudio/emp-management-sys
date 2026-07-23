@@ -25,7 +25,7 @@ function zoneTone(output, quality) {
   return "bg-rose-50/70 border-rose-200";
 }
 
-export function TeamMatrix({ matrix, loading, onUpdated }) {
+export function TeamMatrix({ matrix, loading, onUpdated, readOnly = false }) {
   const [editMember, setEditMember] = useState(null);
   const [outputLevel, setOutputLevel] = useState("medium");
   const [qualityLevel, setQualityLevel] = useState("medium");
@@ -38,6 +38,7 @@ export function TeamMatrix({ matrix, loading, onUpdated }) {
     matrix?.display_quality_levels || ["low", "medium", "high"];
 
   const openEdit = (member) => {
+    if (readOnly) return;
     setError("");
     setEditMember(member);
     setOutputLevel(member.output_level || "medium");
@@ -77,10 +78,16 @@ export function TeamMatrix({ matrix, loading, onUpdated }) {
               {dashboardData.matrix.title}
             </h2>
             <p className="mt-1 text-sm text-text-secondary">
-              {dashboardData.matrix.subtitle}
+              {readOnly
+                ? "3×3 output vs quality zones (view only)"
+                : dashboardData.matrix.subtitle}
             </p>
           </div>
-          <p className="text-xs text-text-muted">{dashboardData.matrix.hint}</p>
+          <p className="text-xs text-text-muted">
+            {readOnly
+              ? "Only super-admins can update matrix ratings"
+              : dashboardData.matrix.hint}
+          </p>
         </div>
 
         {loading ? (

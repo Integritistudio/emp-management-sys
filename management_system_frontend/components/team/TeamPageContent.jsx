@@ -5,6 +5,7 @@ import { useRouter, useSearchParams } from "next/navigation";
 import { Plus } from "lucide-react";
 import { teamData, TEAM_EFFICIENCY_FILTER_OPTIONS } from "@/data/team";
 import { useTeam } from "@/hooks/useTeam";
+import { useAuthContext } from "@/hooks/useAuth";
 import { useDebouncedValue } from "@/hooks/useDebouncedValue";
 import { filterTeamMembers } from "@/lib/teamFilters";
 import { Button } from "@/components/ui/Button";
@@ -20,6 +21,8 @@ import { commonData } from "@/data/common";
 export function TeamPageContent() {
   const router = useRouter();
   const searchParams = useSearchParams();
+  const { isAdmin } = useAuthContext();
+  const canEdit = isAdmin;
   const [search, setSearch] = useState(searchParams.get("search") || "");
   const [titleFilter, setTitleFilter] = useState(searchParams.get("title") || "");
   const [efficiencyFilter, setEfficiencyFilter] = useState(
@@ -109,10 +112,12 @@ export function TeamPageContent() {
           <h1 className="heading-page">{teamData.pageTitle}</h1>
           <p className="text-subtitle">{teamData.subtitle}</p>
         </div>
-        <Button onClick={openCreate}>
-          <Plus className="h-4 w-4" />
-          {teamData.addButton}
-        </Button>
+        {canEdit ? (
+          <Button onClick={openCreate}>
+            <Plus className="h-4 w-4" />
+            {teamData.addButton}
+          </Button>
+        ) : null}
       </div>
 
       <div className="mb-6">
@@ -165,6 +170,7 @@ export function TeamPageContent() {
             <TeamMemberCard
               key={member.id}
               member={member}
+              readOnly={!canEdit}
               onEdit={openEdit}
               onDelete={handleDelete}
             />

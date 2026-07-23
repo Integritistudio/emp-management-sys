@@ -46,13 +46,21 @@ Swagger UI: `http://localhost:5000/api/docs`
 
 ## Features
 
-- Admin + team member auth (JWT httpOnly cookie, role claims)
+- Admin + project admin + team member auth (JWT httpOnly cookie)
 - Change password (`POST /auth/change-password`)
-- Team, Projects, Tasks CRUD with search/sort/filters (admin); member-scoped tasks
-- Task timer (pause/resume/complete) and bulk actions (admin)
-- Dashboard analytics (org-wide for admin; personal stats for members)
-- Reports API with chart data; members see own report (`GET /reports/me`)
-- Branded PDF export (PDFKit) for team and project reports
+- Project Managers CRUD (admin); project ownership + collaborators
+- Team, Projects, Tasks CRUD with role scoping
+- Task timer (pause/resume/complete) and bulk actions
+- Dashboard analytics (org-wide for admin; project-scoped for PMs; personal for members)
+- Reports API with chart data; members see own report
+- Branded PDF export (PDFKit)
+
+## Project admin quick start
+
+1. As super-admin, open **Project Managers** → create account (email + password).
+2. Project admin signs in and creates projects (they become owner).
+3. On a project detail page, add other project managers as **Collaborators**.
+4. Collaborators see that project's tasks, dashboard stats, and reports.
 
 ## Report Endpoints
 

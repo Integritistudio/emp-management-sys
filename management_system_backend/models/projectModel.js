@@ -5,9 +5,11 @@ const {
   projectVariance,
   totalProjectTime,
 } = require("../services/calculationService");
+const { calculateElapsedHours } = require("../services/taskTimerService");
 
 const PROJECT_AGG_JOIN = `
   LEFT JOIN team_members ld ON p.lead_developer_id = ld.id
+  LEFT JOIN project_managers om ON p.owner_id = om.id
   LEFT JOIN LATERAL (
     SELECT
       COUNT(*)::int AS total_tasks,
@@ -35,6 +37,8 @@ const mapProject = (row) => {
     name: row.name,
     lead_developer_id: row.lead_developer_id,
     lead_developer_name: row.lead_developer_name,
+    owner_id: row.owner_id || null,
+    owner_name: row.owner_name || null,
     start_date: row.start_date,
     quality: row.quality,
     status: row.status,
@@ -44,10 +48,8 @@ const mapProject = (row) => {
     on_hold_tasks: row.on_hold_tasks || 0,
     total_estimated_time: totalEstimated,
     total_actual_time: totalActual,
-    // PDF §21.5
     total_project_time: totalProjectTime(completedActual),
     active_task_time: activeActual,
-    // PDF §21.2 / §21.4 — all linked tasks
     project_variance: projectVariance(totalActual, totalEstimated),
     project_efficiency_rate: efficiencyRate(totalEstimated, totalActual),
     created_at: row.created_at,
@@ -90,6 +92,16 @@ const buildProjectWhere = (query) => {
     values.push(query.endDate);
     index += 1;
   }
+  if (query.managerId) {
+    conditions.push(
+      `(p.owner_id = $${index} OR EXISTS (
+        SELECT 1 FROM project_collaborators pc
+        WHERE pc.project_id = p.id AND pc.project_manager_id = $${index}
+      ))`
+    );
+    values.push(query.managerId);
+    index += 1;
+  }
 
   const whereClause =
     conditions.length > 0 ? `WHERE ${conditions.join(" AND ")}` : "";
@@ -113,6 +125,7 @@ const findAll = async (query = {}) => {
 
   const result = await pool.query(
     `SELECT p.*, ld.full_name AS lead_developer_name,
+      om.full_name AS owner_name,
       task_agg.total_tasks, task_agg.completed_tasks, task_agg.active_tasks,
       task_agg.on_hold_tasks, task_agg.total_estimated, task_agg.total_actual,
       task_agg.completed_actual, task_agg.active_actual
@@ -148,6 +161,7 @@ const sumActiveTaskElapsedHours = async (projectId) => {
 const findById = async (id) => {
   const result = await pool.query(
     `SELECT p.*, ld.full_name AS lead_developer_name,
+      om.full_name AS owner_name,
       task_agg.total_tasks, task_agg.completed_tasks, task_agg.active_tasks,
       task_agg.on_hold_tasks, task_agg.total_estimated, task_agg.total_actual,
       task_agg.completed_actual, task_agg.active_actual
@@ -163,12 +177,26 @@ const findById = async (id) => {
   return project;
 };
 
-const create = async ({ name, lead_developer_id, start_date, quality, status }) => {
+const create = async ({
+  name,
+  lead_developer_id,
+  start_date,
+  quality,
+  status,
+  owner_id,
+}) => {
   const result = await pool.query(
-    `INSERT INTO projects (name, lead_developer_id, start_date, quality, status)
-     VALUES ($1, $2, $3, $4, $5)
+    `INSERT INTO projects (name, lead_developer_id, start_date, quality, status, owner_id)
+     VALUES ($1, $2, $3, $4, $5, $6)
      RETURNING id`,
-    [name, lead_developer_id || null, start_date, quality || "medium", status || "not_started"]
+    [
+      name,
+      lead_developer_id || null,
+      start_date,
+      quality || "medium",
+      status || "not_started",
+      owner_id || null,
+    ]
   );
   return findById(result.rows[0].id);
 };
@@ -181,10 +209,19 @@ const update = async (id, data) => {
          start_date = COALESCE($4, start_date),
          quality = COALESCE($5, quality),
          status = COALESCE($6, status),
+         owner_id = COALESCE($7, owner_id),
          updated_at = NOW()
      WHERE id = $1
      RETURNING id`,
-    [id, data.name, data.lead_developer_id, data.start_date, data.quality, data.status]
+    [
+      id,
+      data.name,
+      data.lead_developer_id,
+      data.start_date,
+      data.quality,
+      data.status,
+      data.owner_id !== undefined ? data.owner_id : null,
+    ]
   );
   return result.rows[0] ? findById(result.rows[0].id) : null;
 };
@@ -197,12 +234,55 @@ const remove = async (id) => {
   return result.rows[0] || null;
 };
 
-/** Minimal id+name list for task forms (including member task create). */
-const findOptions = async () => {
+const findOptions = async (managerId = null) => {
+  if (managerId) {
+    const result = await pool.query(
+      `SELECT p.id, p.name FROM projects p
+       WHERE p.owner_id = $1 OR EXISTS (
+         SELECT 1 FROM project_collaborators pc
+         WHERE pc.project_id = p.id AND pc.project_manager_id = $1
+       )
+       ORDER BY p.name ASC`,
+      [managerId]
+    );
+    return result.rows;
+  }
   const result = await pool.query(
     `SELECT id, name FROM projects ORDER BY name ASC`
   );
   return result.rows;
+};
+
+const listCollaborators = async (projectId) => {
+  const result = await pool.query(
+    `SELECT pm.id, pm.full_name, pm.email, pc.created_at AS added_at
+     FROM project_collaborators pc
+     INNER JOIN project_managers pm ON pm.id = pc.project_manager_id
+     WHERE pc.project_id = $1
+     ORDER BY pm.full_name ASC`,
+    [projectId]
+  );
+  return result.rows;
+};
+
+const addCollaborator = async (projectId, projectManagerId) => {
+  await pool.query(
+    `INSERT INTO project_collaborators (project_id, project_manager_id)
+     VALUES ($1, $2)
+     ON CONFLICT (project_id, project_manager_id) DO NOTHING`,
+    [projectId, projectManagerId]
+  );
+  return listCollaborators(projectId);
+};
+
+const removeCollaborator = async (projectId, projectManagerId) => {
+  const result = await pool.query(
+    `DELETE FROM project_collaborators
+     WHERE project_id = $1 AND project_manager_id = $2
+     RETURNING id`,
+    [projectId, projectManagerId]
+  );
+  return result.rows[0] || null;
 };
 
 module.exports = {
@@ -212,4 +292,7 @@ module.exports = {
   create,
   update,
   remove,
+  listCollaborators,
+  addCollaborator,
+  removeCollaborator,
 };

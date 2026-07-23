@@ -66,6 +66,14 @@ const buildTaskWhere = (query) => {
     values.push(query.projectId);
     index += 1;
   }
+  if (query.projectIds && query.projectIds.length > 0) {
+    conditions.push(`t.project_id = ANY($${index}::uuid[])`);
+    values.push(query.projectIds);
+    index += 1;
+  }
+  if (query.projectIds && query.projectIds.length === 0) {
+    conditions.push(`FALSE`);
+  }
   if (query.developerId) {
     conditions.push(`t.assigned_to = $${index}`);
     values.push(query.developerId);

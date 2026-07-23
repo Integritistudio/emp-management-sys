@@ -70,6 +70,7 @@ export function AuthProvider({ children, requireAuth = false, redirectTo = null 
       logout,
       checkAuth,
       isAdmin: user?.role === "admin",
+      isProjectAdmin: user?.role === "project_admin",
       isMember: user?.role === "member",
     }),
     [user, loading, checkAuth]
@@ -150,6 +151,7 @@ export function useAuth({ redirectTo = null, requireAuth = false } = {}) {
     logout,
     checkAuth,
     isAdmin: user?.role === "admin",
+    isProjectAdmin: user?.role === "project_admin",
     isMember: user?.role === "member",
   };
 }

@@ -11,20 +11,21 @@ Integriti Employee Management System — Next.js frontend.
 
 ## Features
 
-- **Login** — Admin or team member (email + password, JWT cookie)
+- **Login** — Admin, project admin, or team member (email + password, JWT cookie)
 - **Change Password** — Sidebar action; requires current password
-- **Dashboard** — Admin: org analytics, team performance, matrix. Member: personal stats only
-- **Projects** — Admin only: full CRUD, filters, detail page with task sub-table
-- **Team** — Admin only: card grid, add/edit members, set/reset login password (`has_login` badge)
-- **Tasks** — Admin: all tasks + bulk. Member: own tasks only; can add tasks assigned to self
-- **Reports** — Admin: team & project tabs. Member: own report only. PDF export
+- **Dashboard** — Admin: org analytics. Project admin: scoped to their projects (matrix view-only). Member: personal stats
+- **Projects** — Admin + project admin (scoped). Collaborators on project detail
+- **Team** — Admin: full CRUD. Project admin: view only
+- **Project Managers** — Admin only: create PM logins
+- **Tasks** — Admin/PM: manage within scope. Member: view own tasks only
+- **Reports** — Role-scoped
 
-## Member access (quick guide)
+## Project admin access (quick guide)
 
-1. Admin creates/edits a team member and sets a login password.
-2. Member signs in with that email and password.
-3. Member sees Dashboard, Task Management, and Reports only.
-4. Member can change their password from the sidebar.
+1. Super-admin creates a Project Manager with password.
+2. PM signs in → sees Dashboard, Projects, Team, Tasks, Reports.
+3. PM creates projects and invites other PMs as collaborators.
+4. PM can view Team but cannot edit/delete members or the matrix.
 
 ## Design
 

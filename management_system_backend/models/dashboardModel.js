@@ -18,6 +18,28 @@ const buildTaskDateFilter = (range, alias = "t") => ({
 const getStats = async (query = {}) => {
   const range = getDateRange(query);
   const { clause, values } = buildTaskDateFilter(range);
+  let projectScope = "";
+  let projectValues = [...values];
+  let taskScope = clause;
+
+  if (query.projectIds) {
+    if (query.projectIds.length === 0) {
+      return {
+        period: range.period,
+        startDate: range.startDate,
+        endDate: range.endDate,
+        totalTasks: 0,
+        activeTasks: 0,
+        completedTasks: 0,
+        onHoldTasks: 0,
+        activeProjects: 0,
+        engagedEmployees: 0,
+      };
+    }
+    taskScope = `${clause} AND t.project_id = ANY($3::uuid[])`;
+    projectScope = ` AND p.id = ANY($3::uuid[])`;
+    projectValues = [...values, query.projectIds];
+  }
 
   const [taskResult, projectResult, employeeResult] = await Promise.all([
     pool.query(
@@ -27,14 +49,14 @@ const getStats = async (query = {}) => {
         COUNT(*) FILTER (WHERE status = 'completed')::int AS completed_tasks,
         COUNT(*) FILTER (WHERE status = 'on_hold')::int AS on_hold_tasks
       FROM tasks t
-      WHERE 1=1 ${clause}`,
-      values
+      WHERE 1=1 ${taskScope}`,
+      projectValues
     ),
-    // Active projects that started in range OR had task activity in range
     pool.query(
       `SELECT COUNT(DISTINCT p.id)::int AS active_projects
        FROM projects p
        WHERE p.status = 'active'
+         ${projectScope}
          AND (
            (p.start_date IS NOT NULL AND p.start_date >= $1::date AND p.start_date <= $2::date)
            OR EXISTS (
@@ -43,15 +65,15 @@ const getStats = async (query = {}) => {
                AND t.created_at >= $1 AND t.created_at <= $2
            )
          )`,
-      values
+      projectValues
     ),
     pool.query(
       `SELECT COUNT(DISTINCT t.assigned_to)::int AS engaged_employees
        FROM tasks t
        WHERE t.assigned_to IS NOT NULL
          AND t.status IN ('in_progress', 'paused')
-         ${clause}`,
-      values
+         ${taskScope}`,
+      projectValues
     ),
   ]);
 
@@ -125,6 +147,16 @@ const getMemberStats = async (memberId, query = {}) => {
  */
 const getTeamPerformance = async (query = {}) => {
   const range = getDateRange(query);
+  const params = [range.startDate, range.endDate];
+  let projectFilter = "";
+
+  if (query.projectIds) {
+    if (query.projectIds.length === 0) {
+      return [];
+    }
+    projectFilter = ` AND t.project_id = ANY($3::uuid[])`;
+    params.push(query.projectIds);
+  }
 
   const result = await pool.query(
     `SELECT
@@ -139,9 +171,10 @@ const getTeamPerformance = async (query = {}) => {
     FROM team_members tm
     LEFT JOIN tasks t ON t.assigned_to = tm.id
       AND t.created_at >= $1 AND t.created_at <= $2
+      ${projectFilter}
     GROUP BY tm.id, tm.full_name, tm.title
     ORDER BY total_tasks DESC, tm.full_name ASC`,
-    [range.startDate, range.endDate]
+    params
   );
 
   // PDF §6.4 — horizontal bar reflects task volume (assigned tasks)

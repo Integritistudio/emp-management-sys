@@ -10,6 +10,7 @@ import {
   BarChart3,
   LogOut,
   KeyRound,
+  UserCog,
 } from "lucide-react";
 import { getNavLinksForRole, navigationData } from "@/data/navigation";
 
@@ -21,6 +22,7 @@ const iconMap = {
   BarChart3,
   LogOut,
   KeyRound,
+  UserCog,
 };
 
 export function Sidebar({ user, onSignOut, onChangePassword }) {

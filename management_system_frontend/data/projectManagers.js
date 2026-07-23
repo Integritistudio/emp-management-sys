@@ -1,0 +1,26 @@
+export const projectManagersData = {
+  pageTitle: "Project Managers",
+  subtitle: "Manage project admin accounts and login access",
+  addButton: "Add Project Manager",
+  emptyTitle: "No project managers yet",
+  emptyDescription: "Add a project manager so they can own projects and invite collaborators.",
+  searchPlaceholder: "Search by name or email...",
+  form: {
+    title: "Add Project Manager",
+    editTitle: "Edit Project Manager",
+    nameLabel: "Full Name",
+    namePlaceholder: "Enter full name",
+    emailLabel: "Email",
+    emailPlaceholder: "manager@integriti.io",
+    passwordLabel: "Login Password",
+    resetPasswordLabel: "Reset Login Password",
+    passwordPlaceholder: "Min. 6 characters",
+    passwordHint: "Required on create. They sign in with this email and password.",
+    passwordHintReset: "Leave blank to keep the current password.",
+    submit: "Save",
+    cancel: "Cancel",
+  },
+  card: {
+    loginEnabled: "Login enabled",
+  },
+};

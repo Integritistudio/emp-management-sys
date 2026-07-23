@@ -1,18 +1,37 @@
 const taskModel = require("../models/taskModel");
-const { isMember, memberId } = require("../middleware/authMiddleware");
+const {
+  isMember,
+  isProjectAdmin,
+  memberId,
+  canAccessProject,
+  getAccessibleProjectIds,
+} = require("../middleware/authMiddleware");
 
-const assertOwnTask = async (req, res) => {
-  if (!isMember(req)) return true;
+const assertTaskAccess = async (req, res) => {
   const task = await taskModel.findById(req.params.id);
   if (!task) {
     res.status(404).json({ message: "Task not found" });
-    return false;
+    return null;
   }
-  if (task.assigned_to !== memberId(req)) {
-    res.status(403).json({ message: "You can only access your own tasks" });
-    return false;
+
+  if (isMember(req)) {
+    if (task.assigned_to !== memberId(req)) {
+      res.status(403).json({ message: "You can only access your own tasks" });
+      return null;
+    }
+    return task;
   }
-  return true;
+
+  if (isProjectAdmin(req)) {
+    if (!(await canAccessProject(req.user, task.project_id))) {
+      res.status(403).json({
+        message: "You can only manage tasks on your projects",
+      });
+      return null;
+    }
+  }
+
+  return task;
 };
 
 const getAll = async (req, res, next) => {
@@ -31,6 +50,15 @@ const getAll = async (req, res, next) => {
 
     if (isMember(req)) {
       filters.developerId = memberId(req);
+    } else if (isProjectAdmin(req)) {
+      const ids = await getAccessibleProjectIds(req.user);
+      if (filters.projectId) {
+        if (!ids.includes(filters.projectId)) {
+          return res.json({ data: [], count: 0 });
+        }
+      } else {
+        filters.projectIds = ids;
+      }
     }
 
     const tasks = await taskModel.findAll(filters);
@@ -42,12 +70,8 @@ const getAll = async (req, res, next) => {
 
 const getById = async (req, res, next) => {
   try {
-    if (!(await assertOwnTask(req, res))) return;
-
-    const task = await taskModel.findById(req.params.id);
-    if (!task) {
-      return res.status(404).json({ message: "Task not found" });
-    }
+    const task = await assertTaskAccess(req, res);
+    if (!task) return;
     res.json({ data: task });
   } catch (error) {
     next(error);
@@ -57,9 +81,19 @@ const getById = async (req, res, next) => {
 const create = async (req, res, next) => {
   try {
     const payload = { ...req.body };
+
     if (isMember(req)) {
-      payload.assigned_to = memberId(req);
+      return res.status(403).json({ message: "Members cannot create tasks" });
     }
+
+    if (isProjectAdmin(req)) {
+      if (!(await canAccessProject(req.user, payload.project_id))) {
+        return res.status(403).json({
+          message: "You can only create tasks on your projects",
+        });
+      }
+    }
+
     const task = await taskModel.create(payload);
     res.status(201).json({ message: "Task created", data: task });
   } catch (error) {
@@ -69,12 +103,21 @@ const create = async (req, res, next) => {
 
 const update = async (req, res, next) => {
   try {
-    if (!(await assertOwnTask(req, res))) return;
+    const existing = await assertTaskAccess(req, res);
+    if (!existing) return;
 
     const payload = { ...req.body };
+
     if (isMember(req)) {
-      // Members cannot reassign tasks to others
-      payload.assigned_to = memberId(req);
+      return res.status(403).json({ message: "Members cannot update tasks" });
+    }
+
+    if (isProjectAdmin(req) && payload.project_id) {
+      if (!(await canAccessProject(req.user, payload.project_id))) {
+        return res.status(403).json({
+          message: "You can only move tasks within your projects",
+        });
+      }
     }
 
     const task = await taskModel.update(req.params.id, payload);
@@ -97,7 +140,10 @@ const update = async (req, res, next) => {
 
 const remove = async (req, res, next) => {
   try {
-    if (!(await assertOwnTask(req, res))) return;
+    if (isMember(req)) {
+      return res.status(403).json({ message: "Members cannot delete tasks" });
+    }
+    if (!(await assertTaskAccess(req, res))) return;
 
     const task = await taskModel.remove(req.params.id);
     if (!task) {
@@ -111,7 +157,10 @@ const remove = async (req, res, next) => {
 
 const pause = async (req, res, next) => {
   try {
-    if (!(await assertOwnTask(req, res))) return;
+    if (isMember(req)) {
+      return res.status(403).json({ message: "Members cannot modify tasks" });
+    }
+    if (!(await assertTaskAccess(req, res))) return;
 
     const task = await taskModel.pause(req.params.id);
     if (!task) {
@@ -128,7 +177,10 @@ const pause = async (req, res, next) => {
 
 const resume = async (req, res, next) => {
   try {
-    if (!(await assertOwnTask(req, res))) return;
+    if (isMember(req)) {
+      return res.status(403).json({ message: "Members cannot modify tasks" });
+    }
+    if (!(await assertTaskAccess(req, res))) return;
 
     const task = await taskModel.resume(req.params.id);
     if (!task) {
@@ -148,7 +200,10 @@ const resume = async (req, res, next) => {
 
 const complete = async (req, res, next) => {
   try {
-    if (!(await assertOwnTask(req, res))) return;
+    if (isMember(req)) {
+      return res.status(403).json({ message: "Members cannot modify tasks" });
+    }
+    if (!(await assertTaskAccess(req, res))) return;
 
     const result = await taskModel.complete(req.params.id, {
       confirm: req.body.confirm === true,
@@ -186,6 +241,26 @@ const bulkUpdate = async (req, res, next) => {
     }
 
     const { taskIds, action, value, confirm, actual_hours } = req.body;
+
+    if (isProjectAdmin(req)) {
+      const accessible = await getAccessibleProjectIds(req.user);
+      for (const id of taskIds) {
+        const task = await taskModel.findById(id);
+        if (!task || !accessible.includes(task.project_id)) {
+          return res.status(403).json({
+            message: "Bulk actions are limited to your projects",
+          });
+        }
+      }
+      if (action === "move_project" && value) {
+        if (!(await canAccessProject(req.user, value))) {
+          return res.status(403).json({
+            message: "You can only move tasks within your projects",
+          });
+        }
+      }
+    }
+
     const bulkValue =
       action === "complete"
         ? { confirm: confirm === true, actual_hours }

@@ -14,7 +14,7 @@ import { TeamMatrix } from "./TeamMatrix";
 export function DashboardPageContent() {
   const router = useRouter();
   const searchParams = useSearchParams();
-  const { isMember, user } = useAuthContext();
+  const { isMember, isProjectAdmin, isAdmin, user } = useAuthContext();
   const [period, setPeriod] = useState(searchParams.get("period") || "week");
   const [startDate, setStartDate] = useState(
     searchParams.get("startDate") || ""
@@ -59,7 +59,9 @@ export function DashboardPageContent() {
 
   const subtitle = isMember
     ? dashboardData.memberSubtitle
-    : dashboardData.subtitle;
+    : isProjectAdmin
+      ? "Stats for your projects and collaborators"
+      : dashboardData.subtitle;
 
   return (
     <div className="space-y-8">
@@ -139,7 +141,12 @@ export function DashboardPageContent() {
           </section>
 
           <section>
-            <TeamMatrix matrix={matrix} loading={loading} onUpdated={refresh} />
+            <TeamMatrix
+              matrix={matrix}
+              loading={loading}
+              onUpdated={refresh}
+              readOnly={!isAdmin}
+            />
           </section>
         </>
       ) : null}

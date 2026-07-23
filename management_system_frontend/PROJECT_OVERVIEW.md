@@ -117,32 +117,32 @@ All dashboard routes are wrapped in `(dashboard)/layout.jsx` → `DashboardShell
 ### Roles
 | Role | Nav | Access |
 |------|-----|--------|
-| `admin` | Dashboard, Projects, Team, Tasks, Reports | Full org data |
-| `member` | Dashboard, Tasks, Reports | Own stats, own tasks, own report only |
+| `admin` | All + Project Managers | Full org data |
+| `project_admin` | Dashboard, Projects, Team, Tasks, Reports | Owned/collaborator projects; Team view-only; Matrix view-only |
+| `member` | Dashboard, Tasks, Reports | Own stats/tasks/report (tasks read-only) |
 
-Projects and Team routes are wrapped in `AdminOnly` (members redirect to `/dashboard`).
+Use `RequireRoles` / `AdminOnly` for route gates. Project Managers page is super-admin only.
 
 ### `DashboardShell.jsx`
 - Fixed-height sidebar (`w-[220px]`), main content scrolls independently
-- Shows user email or member name; **Change Password** + Sign Out
+- Shows user email or name; **Change Password** + Sign Out
 - `ChangePasswordModal` — current password + new password + confirm
 
 ### `AuthProvider` / `useAuth` / `useAuthContext`
 - Dashboard layout wraps pages in `AuthProvider` (`requireAuth`)
-- Checks `GET /auth/me` on load; exposes `user.role`, `isAdmin`, `isMember`
+- Checks `GET /auth/me` on load; exposes `user.role`, `isAdmin`, `isProjectAdmin`, `isMember`
 - Login sets httpOnly cookie (handled by backend)
-- Both roles use the same login page
+- All roles use the same login page
 
 ### `lib/api.js`
 - Central `request()` with `credentials: "include"`
 - `ApiError` class for user-facing error messages
-- Module-specific clients: `lib/tasks.js`, `lib/team.js`, `lib/projects.js`, etc.
+- Module-specific clients: `lib/tasks.js`, `lib/team.js`, `lib/projects.js`, `lib/projectManagers.js`, etc.
 
-### Member UI behaviour
-- **Dashboard:** personal analytics cards only (no team table / matrix)
-- **Tasks:** only own tasks; assignee locked to self; project dropdown from `/projects/options`; no bulk actions
-- **Reports:** own report only (no project tab / developer picker)
-- **Team form (admin):** optional login password on create; set/reset password on edit; `has_login` badge on cards
+### Role UI behaviour
+- **Project admin:** full tabs except Project Managers; collaborators on project detail; Team without edit/delete; matrix read-only
+- **Member:** personal dashboard; own tasks read-only; own report
+- **Admin:** Project Managers page; full Team CRUD + matrix edit; optional member login passwords
 
 ---
 
@@ -280,6 +280,7 @@ Configured on the **backend** (5 PM–2 AM). Frontend displays the deadline retu
 
 | Date | Change |
 |------|--------|
+| 2026-07-23 | Project admin UI, Project Managers page, collaborators, role gates |
 | 2026-07-22 | Member login UI, role-filtered nav, scoped dashboard/tasks/reports, change password, team login password fields |
 | 2026-07-07 | Fixed datetime-local timezone display |
 | 2026-07-07 | TaskForm: In Progress default with use_current_time |
@@ -290,4 +291,4 @@ Configured on the **backend** (5 PM–2 AM). Frontend displays the deadline retu
 
 ---
 
-*Last updated: 2026-07-22*
+*Last updated: 2026-07-23*

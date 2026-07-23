@@ -26,6 +26,14 @@ const buildTaskFilters = (query = {}) => {
     values.push(query.projectId);
     index += 1;
   }
+  if (query.projectIds && query.projectIds.length > 0) {
+    conditions.push(`t.project_id = ANY($${index}::uuid[])`);
+    values.push(query.projectIds);
+    index += 1;
+  }
+  if (query.projectIds && query.projectIds.length === 0) {
+    conditions.push(`FALSE`);
+  }
   if (query.status) {
     conditions.push(`t.status = $${index}`);
     values.push(query.status);
@@ -505,6 +513,14 @@ const getProjectReports = async (query = {}) => {
     projectConditions.push(`p.id = $${projectIndex}`);
     projectValues.push(query.projectId);
     projectIndex += 1;
+  }
+  if (query.projectIds && query.projectIds.length > 0) {
+    projectConditions.push(`p.id = ANY($${projectIndex}::uuid[])`);
+    projectValues.push(query.projectIds);
+    projectIndex += 1;
+  }
+  if (query.projectIds && query.projectIds.length === 0) {
+    projectConditions.push(`FALSE`);
   }
   if (query.status) {
     projectConditions.push(`p.status = $${projectIndex}`);

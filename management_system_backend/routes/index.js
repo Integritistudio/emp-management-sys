@@ -1,6 +1,7 @@
 const express = require("express");
 const authRoutes = require("./authRoutes");
 const teamMemberRoutes = require("./teamMemberRoutes");
+const projectManagerRoutes = require("./projectManagerRoutes");
 const projectRoutes = require("./projectRoutes");
 const taskRoutes = require("./taskRoutes");
 const dashboardRoutes = require("./dashboardRoutes");
@@ -32,6 +33,7 @@ router.get("/health", (req, res) => {
  */
 
 router.use("/auth", authRoutes);
+router.use("/project-managers", authMiddleware, projectManagerRoutes);
 router.use("/team-members", authMiddleware, teamMemberRoutes);
 router.use("/projects", authMiddleware, projectRoutes);
 router.use("/tasks", authMiddleware, taskRoutes);

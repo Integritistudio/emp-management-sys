@@ -5,20 +5,26 @@ import { useRouter } from "next/navigation";
 import { useAuthContext } from "@/hooks/useAuth";
 import { PageLoader } from "@/components/ui/PageLoader";
 
-/** Redirects members away from admin-only routes. */
-export function AdminOnly({ children }) {
+/** Redirects users who lack any of the allowed roles. */
+export function RequireRoles({ roles = ["admin"], children }) {
   const router = useRouter();
-  const { user, loading, isMember } = useAuthContext();
+  const { user, loading } = useAuthContext();
+  const allowed = Boolean(user && roles.includes(user.role));
 
   useEffect(() => {
-    if (!loading && isMember) {
+    if (!loading && user && !allowed) {
       router.replace("/dashboard");
     }
-  }, [loading, isMember, router]);
+  }, [loading, user, allowed, router]);
 
-  if (loading || !user || isMember) {
+  if (loading || !user || !allowed) {
     return <PageLoader />;
   }
 
   return children;
+}
+
+/** Super-admin only. */
+export function AdminOnly({ children }) {
+  return <RequireRoles roles={["admin"]}>{children}</RequireRoles>;
 }

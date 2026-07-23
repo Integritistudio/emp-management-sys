@@ -7,7 +7,7 @@ import { Card } from "@/components/ui/Card";
 import { ActionIconButton } from "@/components/ui/TableActionButtons";
 import { formatHours, formatPercent, formatLabel } from "@/lib/formatters";
 
-export function TeamMemberCard({ member, onEdit, onDelete }) {
+export function TeamMemberCard({ member, onEdit, onDelete, readOnly = false }) {
   const router = useRouter();
 
   return (
@@ -72,18 +72,22 @@ export function TeamMemberCard({ member, onEdit, onDelete }) {
           href={`/team/${member.id}`}
           boxed
         />
-        <ActionIconButton
-          type="edit"
-          label={commonData.actions.edit}
-          onClick={() => onEdit(member)}
-          boxed
-        />
-        <ActionIconButton
-          type="delete"
-          label={commonData.actions.delete}
-          onClick={() => onDelete(member)}
-          boxed
-        />
+        {!readOnly ? (
+          <>
+            <ActionIconButton
+              type="edit"
+              label={commonData.actions.edit}
+              onClick={() => onEdit(member)}
+              boxed
+            />
+            <ActionIconButton
+              type="delete"
+              label={commonData.actions.delete}
+              onClick={() => onDelete(member)}
+              boxed
+            />
+          </>
+        ) : null}
       </div>
     </Card>
   );

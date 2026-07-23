@@ -24,15 +24,35 @@ const initQueries = [
 
   `ALTER TABLE team_members ADD COLUMN IF NOT EXISTS password_hash VARCHAR(255)`,
 
+  `CREATE TABLE IF NOT EXISTS project_managers (
+    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    full_name VARCHAR(255) NOT NULL,
+    email VARCHAR(255) UNIQUE NOT NULL,
+    password_hash VARCHAR(255) NOT NULL,
+    created_at TIMESTAMPTZ DEFAULT NOW(),
+    updated_at TIMESTAMPTZ DEFAULT NOW()
+  )`,
+
   `CREATE TABLE IF NOT EXISTS projects (
     id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
     name VARCHAR(255) NOT NULL,
     lead_developer_id UUID REFERENCES team_members(id) ON DELETE SET NULL,
+    owner_id UUID REFERENCES project_managers(id) ON DELETE SET NULL,
     start_date DATE NOT NULL,
     quality VARCHAR(20) NOT NULL DEFAULT 'medium' CHECK (quality IN ('low', 'medium', 'high')),
     status VARCHAR(20) NOT NULL DEFAULT 'not_started' CHECK (status IN ('not_started', 'active', 'on_hold', 'completed', 'delayed', 'cancelled')),
     created_at TIMESTAMPTZ DEFAULT NOW(),
     updated_at TIMESTAMPTZ DEFAULT NOW()
+  )`,
+
+  `ALTER TABLE projects ADD COLUMN IF NOT EXISTS owner_id UUID REFERENCES project_managers(id) ON DELETE SET NULL`,
+
+  `CREATE TABLE IF NOT EXISTS project_collaborators (
+    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    project_id UUID NOT NULL REFERENCES projects(id) ON DELETE CASCADE,
+    project_manager_id UUID NOT NULL REFERENCES project_managers(id) ON DELETE CASCADE,
+    created_at TIMESTAMPTZ DEFAULT NOW(),
+    UNIQUE (project_id, project_manager_id)
   )`,
 
   `CREATE TABLE IF NOT EXISTS tasks (
@@ -60,6 +80,9 @@ const initQueries = [
   `CREATE INDEX IF NOT EXISTS idx_tasks_status ON tasks(status)`,
   `CREATE INDEX IF NOT EXISTS idx_projects_status ON projects(status)`,
   `CREATE INDEX IF NOT EXISTS idx_projects_lead ON projects(lead_developer_id)`,
+  `CREATE INDEX IF NOT EXISTS idx_projects_owner ON projects(owner_id)`,
+  `CREATE INDEX IF NOT EXISTS idx_project_collaborators_project ON project_collaborators(project_id)`,
+  `CREATE INDEX IF NOT EXISTS idx_project_collaborators_manager ON project_collaborators(project_manager_id)`,
 ];
 
 async function initDatabase() {

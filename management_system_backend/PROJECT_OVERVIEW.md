@@ -100,23 +100,40 @@ npm start      # manual restart required
 
 ## Authentication
 
-Roles: **`admin`** (table `admins`) and **`member`** (table `team_members` with a non-null `password_hash`).
+Roles: **`admin`** (table `admins`), **`project_admin`** (table `project_managers`), and **`member`** (table `team_members` with a non-null `password_hash`).
 
 | Endpoint | Description |
 |----------|-------------|
-| `POST /api/auth/login` | Tries admin first, then team member with login enabled. Sets `token` httpOnly cookie. JWT includes `{ id, email, role, memberId? }`. |
-| `GET /api/auth/me` | Returns `{ user, admin }` where `user` has `id`, `email`, `role`, and for members `full_name` + `memberId`. |
+| `POST /api/auth/login` | Tries admin → project manager → team member. Sets `token` httpOnly cookie. JWT includes `{ id, email, role, memberId? \| managerId? }`. |
+| `GET /api/auth/me` | Returns `{ user, admin }` with role-specific fields. |
 | `POST /api/auth/logout` | Clears cookie |
-| `POST /api/auth/change-password` | Body `{ currentPassword, newPassword }` — verifies current password, updates hash (min 6 chars). Works for both roles. |
+| `POST /api/auth/change-password` | Body `{ currentPassword, newPassword }` — works for all roles. |
+
+### Role access summary
+
+| Area | Admin | Project Admin | Member |
+|------|-------|---------------|--------|
+| Projects | All | Owned + collaborator projects | Options only (if creating tasks — members are read-only) |
+| Tasks | All | Tasks on accessible projects | Own tasks, read-only |
+| Team | Full CRUD | View only | Hidden |
+| Matrix | View + edit | View only | Hidden |
+| Project Managers | Full CRUD | Options list for collaborators | Hidden |
+| Dashboard / Reports | Org-wide | Scoped to accessible projects | Own stats/report |
+
+### Project ownership & collaborators
+
+- `projects.owner_id` → `project_managers.id` (set automatically when a PM creates a project)
+- `project_collaborators` links additional PMs to a project
+- Access = owner **or** collaborator
+- Endpoints: `GET/POST /projects/:id/collaborators`, `DELETE /projects/:id/collaborators/:managerId`
+
+### Enabling logins
+
+- **Members:** Admin sets optional password on Team create/edit
+- **Project admins:** Admin creates them on **Project Managers** page with required password
 
 - All resource routes use `authMiddleware` (except `/health` and login/logout).
-- `requireAdmin` blocks members from team CRUD, full project CRUD, org-wide dashboard sections, and project reports.
-- Members may call `GET /projects/options` (id + name only) to pick a project when creating a task.
-- Task list/create/update for members is forced to `assigned_to = self`. Bulk task actions are admin-only.
-
-### Enabling member login
-
-Admin sets an optional **password** when creating or editing a team member. That stores a bcrypt `password_hash` on `team_members`. Until a password is set, the member cannot log in (`has_login: false` in API responses). Members then sign in with their **email + password**.
+- `requireAdmin` / `requireRoles(...)` gate write paths.
 
 ---
 
@@ -125,11 +142,12 @@ Admin sets an optional **password** when creating or editing a team member. That
 | Prefix | Module |
 |--------|--------|
 | `/auth` | Login, logout, session, change-password |
-| `/team-members` | Team CRUD + matrix rating (**admin only**) |
-| `/projects` | Project CRUD (**admin**); `/projects/options` for all authenticated users |
-| `/tasks` | Task CRUD, pause/resume/complete; members scoped to own tasks |
-| `/dashboard` | Stats (member = own stats); team performance / weekday / matrix (**admin**) |
-| `/reports` | Team/project reports; members = own report + `/reports/me`; project reports admin-only |
+| `/project-managers` | Project admin CRUD (**admin**); `/options` for admin + project_admin |
+| `/team-members` | Team list/detail for admin + project_admin; writes admin-only |
+| `/projects` | Project CRUD scoped for project_admin; collaborators endpoints |
+| `/tasks` | Task CRUD; members own/read-only; PMs scoped to projects |
+| `/dashboard` | Stats (scoped for PM); matrix view for admin + PM |
+| `/reports` | Reports scoped for PM; members own report |
 
 Full interactive docs: **`/api/docs`**
 
@@ -137,7 +155,7 @@ Full interactive docs: **`/api/docs`**
 
 ## Database
 
-Main tables: `admins`, `team_members`, `projects`, `tasks`
+Main tables: `admins`, `team_members`, `project_managers`, `projects`, `project_collaborators`, `tasks`
 
 ### `team_members` auth columns
 
@@ -145,6 +163,14 @@ Main tables: `admins`, `team_members`, `projects`, `tasks`
 |--------|---------|
 | `password_hash` | Nullable bcrypt hash; `NULL` means login disabled |
 | *(API)* `has_login` | Derived boolean — never expose `password_hash` in responses |
+
+### Project managers / collaborators
+
+| Table / column | Purpose |
+|----------------|---------|
+| `project_managers` | Login accounts for project admins |
+| `projects.owner_id` | Owning project manager (nullable) |
+| `project_collaborators` | Extra PMs with access to a project |
 
 ### Task columns (timer-related)
 
@@ -261,6 +287,7 @@ When adding a new endpoint:
 
 | Date | Change |
 |------|--------|
+| 2026-07-23 | Project admin role, ownership, collaborators, scoped APIs |
 | 2026-07-22 | Member login + role-scoped APIs; change-password; project options; member dashboard stats |
 | 2026-07-07 | Office-hours deadline calculation (5 PM–2 AM) |
 | 2026-07-07 | Auto actual_hours on completion via update path |
@@ -270,4 +297,4 @@ When adding a new endpoint:
 
 ---
 
-*Last updated: 2026-07-22*
+*Last updated: 2026-07-23*

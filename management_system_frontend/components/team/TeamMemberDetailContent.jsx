@@ -6,6 +6,7 @@ import { useRouter } from "next/navigation";
 import { ArrowLeft } from "lucide-react";
 import { teamData } from "@/data/team";
 import { useTeamMember } from "@/hooks/useTeam";
+import { useAuthContext } from "@/hooks/useAuth";
 import { Card } from "@/components/ui/Card";
 import { Badge } from "@/components/ui/Badge";
 import { Button } from "@/components/ui/Button";
@@ -39,6 +40,7 @@ import { PaginatedTable } from "@/components/ui/PaginatedTable";
 
 export function TeamMemberDetailContent({ memberId }) {
   const router = useRouter();
+  const { isAdmin } = useAuthContext();
   const { member, loading, error, updateMember, deleteMember } = useTeamMember(memberId);
   const [modalOpen, setModalOpen] = useState(false);
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
@@ -104,20 +106,22 @@ export function TeamMemberDetailContent({ memberId }) {
             <p className="mt-1 text-subtitle">{member.title}</p>
             <p className="mt-1 text-sm text-text-muted">{member.email}</p>
           </div>
-          <div className="flex items-center gap-2">
-            <ActionIconButton
-              type="edit"
-              label={commonData.actions.edit}
-              onClick={() => setModalOpen(true)}
-              boxed
-            />
-            <ActionIconButton
-              type="delete"
-              label={commonData.actions.delete}
-              onClick={() => setShowDeleteConfirm(true)}
-              boxed
-            />
-          </div>
+          {isAdmin ? (
+            <div className="flex items-center gap-2">
+              <ActionIconButton
+                type="edit"
+                label={commonData.actions.edit}
+                onClick={() => setModalOpen(true)}
+                boxed
+              />
+              <ActionIconButton
+                type="delete"
+                label={commonData.actions.delete}
+                onClick={() => setShowDeleteConfirm(true)}
+                boxed
+              />
+            </div>
+          ) : null}
         </div>
       </div>
 

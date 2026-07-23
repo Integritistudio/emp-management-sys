@@ -1,12 +1,12 @@
 import { ProjectDetailContent } from "@/components/projects/ProjectDetailContent";
-import { AdminOnly } from "@/components/layout/AdminOnly";
+import { RequireRoles } from "@/components/layout/AdminOnly";
 
 export default async function ProjectDetailPage({ params }) {
   const { id } = await params;
 
   return (
-    <AdminOnly>
+    <RequireRoles roles={["admin", "project_admin"]}>
       <ProjectDetailContent projectId={id} />
-    </AdminOnly>
+    </RequireRoles>
   );
 }
